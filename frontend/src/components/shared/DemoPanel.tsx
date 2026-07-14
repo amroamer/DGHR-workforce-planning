@@ -32,18 +32,19 @@ export function DemoPanel() {
     enabled: open,
   });
 
-  const reset = async () => {
+  const run = async (fn: () => Promise<unknown>, msg: string) => {
     setBusy(true);
-    try {
-      await api.resetDemo();
-      qc.invalidateQueries();
-      toast.success("Demo data reset to the canonical scenario.");
-    } catch {
-      toast.error("Reset failed.");
-    } finally {
-      setBusy(false);
-    }
+    try { await fn(); qc.invalidateQueries(); toast.success(msg); }
+    catch { toast.error("Action failed."); }
+    finally { setBusy(false); }
   };
+  const reset = () => run(() => api.resetDemo(), "Demo data reset to the canonical scenario.");
+  const simulate = () => run(async () => {
+    const r = await api.simulateSubmissions();
+    return r;
+  }, "3 entities are submitting — watch the dashboards move.");
+  const anomaly = () => run(() => api.triggerAnomaly(), "Fresh AI anomaly triggered.");
+  const advance = () => run(() => api.advanceTrend(), "Collection progress trend advanced.");
 
   if (!open) return null;
 
@@ -85,15 +86,15 @@ export function DemoPanel() {
 
         <div className="space-y-2">
           <Button variant="secondary" className="w-full justify-start" onClick={reset} disabled={busy}>
-            <RotateCcw size={16} /> {busy ? "Resetting…" : "Reset Demo Data"}
+            <RotateCcw size={16} /> {busy ? "Working…" : "Reset Demo Data"}
           </Button>
-          <Button variant="ghost" className="w-full justify-start opacity-60" disabled title="Wired in Phase 3/4">
+          <Button variant="secondary" className="w-full justify-start" onClick={simulate} disabled={busy}>
             <Activity size={16} /> Simulate 3 Submissions
           </Button>
-          <Button variant="ghost" className="w-full justify-start opacity-60" disabled title="Wired in Phase 4">
+          <Button variant="secondary" className="w-full justify-start" onClick={anomaly} disabled={busy}>
             <Activity size={16} /> Trigger AI Anomaly
           </Button>
-          <Button variant="ghost" className="w-full justify-start opacity-60" disabled title="Wired in Phase 5">
+          <Button variant="secondary" className="w-full justify-start" onClick={advance} disabled={busy}>
             <Activity size={16} /> Advance Trend
           </Button>
         </div>

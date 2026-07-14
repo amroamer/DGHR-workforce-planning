@@ -112,4 +112,24 @@ Workforce import dropzone (drag/drop + staged "Parsing → Mapping → Validatin
 Evidence: docs/progress/phase-4/
 
 ## Phase 5 — Vision teaser + demo polish
-Status: not started
+Status: **COMPLETE ✓** (gate passed) — final phase
+
+### Backend
+`services/readiness.py` + `GET /dghr/forecasting-readiness` — Zone 1 real (ready 11/blocked 48 via canonical §6 rule, avg completeness/quality, entity readiness table, blockers) + Zone 2 §7.6 preview (vision metrics, skills, scenarios, quotes). Demo control endpoints: `/demo/simulate-submissions`, `/demo/trigger-anomaly`, `/demo/advance-trend`.
+
+### Frontend
+§9.5 Forecasting Readiness screen — Zone 1 real data + Zone 2 Layer-B preview with **VisionBadge on every card** + the factory-quote footer. DemoPanel (Ctrl+Shift+D) actions wired live. Polish: count-up on live KPI changes (AnimatedNumber), CSS-transitioned readiness ring, KPI loading skeletons, page fade-in, Recharts entry animations disabled for crisp render.
+
+### Gate checklist
+- [x] §9.5 visual quality equals the mockup-backed screens
+- [x] Zone 1 numbers real (11/48/73%/83/19%); Zone 2 all VisionBadge-labeled, sourced from §7.6 only
+- [x] DemoPanel simulate/anomaly/trend work; `POST /demo/reset` restores exact §7 state (checks 21/21)
+- [x] Runs fully offline — `DEMO_AI_MODE=fallback`, no API key; AI features use deterministic fallback
+- [x] 3 services healthy · tsc strict clean · no metric literals in pages/
+
+Evidence: docs/progress/phase-5/
+
+---
+
+## ✅ MVP COMPLETE — all 6 phases (0–5) passed their gates
+The §16 demo script runs end-to-end: Command Center → persona switch → live Excel import + AI mapping → submit → cross-portal clarification loop → approve (dashboards animate) → the Forecasting Readiness factory close. A stranger with two browser windows can run it unassisted; no dead ends; nothing contradicts APPLICATION_CONTEXT.md. See CONFLICTS.md for surfaced source reconciliations (C1–C6).

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.services import cases as cases_svc
-from app.services import dghr_views, kpi, workflow
+from app.services import dghr_views, kpi, readiness, workflow
 from app import models as m
 
 router = APIRouter(prefix="/api/dghr", tags=["dghr"])
@@ -131,6 +131,17 @@ def patch_issue(issue_id: int, body: IssuePatch, db: Session = Depends(get_db)) 
 
 
 # ─────────────────────────── entity detail drawer (§9.7) ───────────────────────────
+@router.get("/forecasting-readiness")
+def forecasting_readiness(
+    filter_state: str = "all",
+    page: int = Query(1, ge=1),
+    page_size: int = Query(8, ge=1, le=50),
+    db: Session = Depends(get_db),
+) -> dict:
+    """SPEC §9.5 — Zone 1 real readiness + Zone 2 Illustrative Layer-B preview."""
+    return readiness.build_readiness(db, filter_state=filter_state, page=page, page_size=page_size)
+
+
 @router.get("/entities/{entity_id}")
 def entity_detail(entity_id: int, db: Session = Depends(get_db)) -> dict:
     detail = dghr_views.build_entity_detail(db, entity_id)

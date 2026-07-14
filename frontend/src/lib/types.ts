@@ -370,6 +370,47 @@ export interface MySubmissions {
   }[];
 }
 
+// ─────────────── Forecasting Readiness (§9.5) ───────────────
+export interface VisionMetric {
+  value_numeric: number | null;
+  value_text: string | null;
+  label: string;
+  unit: string;
+}
+export interface ReadinessPayload {
+  kpis: {
+    ready: number;
+    ready_pct: number;
+    blocked: number;
+    blocked_pct: number;
+    avg_completeness: number;
+    avg_quality: number;
+    readiness_progress: number;
+    target_date: string | null;
+  };
+  entity_readiness: {
+    rows: {
+      id: number;
+      name: string;
+      code: string;
+      completeness: number;
+      quality_score: number | null;
+      forecasting_ready: boolean;
+      blocking_reasons: string[];
+    }[];
+    page: number;
+    page_size: number;
+    total: number;
+  };
+  blockers: BlockedSummary;
+  vision_preview: {
+    metrics: Record<string, VisionMetric | null>;
+    skills: { skill: string; gap_fte: number; rank: number }[];
+    scenarios: { scenario: string; headcount: number; cost_aed_b: number; gaps: number }[];
+    quotes: { body: string; tag: string }[];
+  };
+}
+
 // ─────────────── Cases / Clarifications (§9.6, §10.6) ───────────────
 export interface CaseSummary {
   id: number;

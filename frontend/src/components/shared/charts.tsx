@@ -30,7 +30,7 @@ export function DonutChart({
     <div className="relative" style={{ width: size, height: size }}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie
+          <Pie isAnimationActive={false}
             data={data}
             dataKey="value"
             innerRadius={size * 0.32}
@@ -79,7 +79,7 @@ export function TrendLine({
           tickFormatter={(v) => `${v}%`}
         />
         <Tooltip />
-        <Area type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={2} fill="url(#trendFill)" dot={{ r: 3, fill: "#2563EB" }} />
+        <Area type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={2} fill="url(#trendFill)" dot={{ r: 3, fill: "#2563EB" }} isAnimationActive={false} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -127,7 +127,7 @@ export function HBarChart({
           axisLine={false}
           tickLine={false}
         />
-        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={14} label={{ position: "right", fontSize: 12, fill: "#475569" }}>
+        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={14} isAnimationActive={false} label={{ position: "right", fontSize: 12, fill: "#475569" }}>
           {data.map((d, i) => (
             <Cell key={i} fill={d.highlight ? "#2563EB" : "#16A34A"} />
           ))}
@@ -155,7 +155,7 @@ export function GroupedBarChart({
           <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
           <Tooltip />
           {series.map((s) => (
-            <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.color} radius={[3, 3, 0, 0]} barSize={16} />
+            <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.color} radius={[3, 3, 0, 0]} barSize={16} isAnimationActive={false} />
           ))}
         </BarChart>
       </ResponsiveContainer>

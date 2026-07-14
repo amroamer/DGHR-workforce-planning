@@ -1,5 +1,29 @@
 import * as React from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn, fmt } from "@/lib/utils";
+
+/** Ease a number toward its target over ~500ms (SPEC §11 — dashboards come alive). */
+function useCountUp(target: number, duration = 550): number {
+  const [val, setVal] = useState(target);
+  const prev = useRef(target);
+  useEffect(() => {
+    const from = prev.current;
+    const to = target;
+    prev.current = target;
+    if (from === to) { setVal(to); return; }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - (1 - t) * (1 - t);
+      setVal(Math.round(from + (to - from) * eased));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+  return val;
+}
 
 // KPI card (SPEC §4.3): 44px tinted icon circle, value, label, sublabel, optional link.
 // Ring variant shows a 56px donut with a % center.
@@ -17,9 +41,10 @@ const TONE: Record<KpiTone, { fg: string; bg: string }> = {
 
 function Ring({ pct, tone }: { pct: number; tone: KpiTone }) {
   const { fg } = TONE[tone];
+  const shown = Math.round(pct);
   const r = 24;
   const c = 2 * Math.PI * r;
-  const dash = (Math.min(100, Math.max(0, pct)) / 100) * c;
+  const dash = (Math.min(100, Math.max(0, shown)) / 100) * c;
   return (
     <svg width="56" height="56" viewBox="0 0 56 56" className="shrink-0">
       <circle cx="28" cy="28" r={r} fill="none" stroke="#E6EAF2" strokeWidth="6" />
@@ -33,11 +58,30 @@ function Ring({ pct, tone }: { pct: number; tone: KpiTone }) {
         strokeLinecap="round"
         strokeDasharray={`${dash} ${c}`}
         transform="rotate(-90 28 28)"
+        style={{ transition: "stroke-dasharray 500ms ease-out" }}
       />
       <text x="28" y="32" textAnchor="middle" className="fill-text1 text-[13px] font-bold">
-        {Math.round(pct)}%
+        {shown}%
       </text>
     </svg>
+  );
+}
+
+/** Numeric display that count-ups on live changes (but not on first mount / load). */
+function AnimatedNumber({ n }: { n: number }) {
+  const animated = useCountUp(n);
+  return <>{fmt(animated)}</>;
+}
+
+/** KPI value: skeleton while loading, count-up for live numeric changes, else as-is. */
+function KpiValue({ value }: { value: React.ReactNode }) {
+  if (value === undefined) {
+    return <div className="h-7 w-16 animate-pulse rounded bg-page" />;
+  }
+  return (
+    <div className="text-[26px] font-bold leading-tight text-text1">
+      {typeof value === "number" ? <AnimatedNumber n={value} /> : value}
+    </div>
   );
 }
 
@@ -81,11 +125,7 @@ export function KpiCard({
         </div>
       )}
       <div className="min-w-0">
-        {value !== undefined && (
-          <div className="text-[26px] font-bold leading-tight text-text1">
-            {typeof value === "number" ? fmt(value) : value}
-          </div>
-        )}
+        {(value !== undefined || ring === undefined) && <KpiValue value={value} />}
         <div className="text-[13px] font-semibold text-text1">{label}</div>
         {sublabel && <div className="mt-0.5 text-xs text-text3">{sublabel}</div>}
         {link && (

@@ -16,6 +16,7 @@ import type {
   NotificationPoll,
   OrgStructure,
   QualityPayload,
+  ReadinessPayload,
   TrackerPayload,
   WorkforcePayload,
   WorkloadPayload,
@@ -174,6 +175,14 @@ export const api = {
     }),
 
   entityDetail: (id: number) => request<EntityDetail>(`/api/dghr/entities/${id}`),
+
+  forecastingReadiness: (filter_state = "all", page = 1) =>
+    request<ReadinessPayload>(`/api/dghr/forecasting-readiness?filter_state=${filter_state}&page=${page}`),
+
+  // ── Demo control (Phase 5) ──
+  simulateSubmissions: () => request<{ ok: boolean; submitted: { entity: string; package: string }[] }>("/api/demo/simulate-submissions", { method: "POST" }),
+  triggerAnomaly: () => request<{ ok: boolean; anomaly_id: number }>("/api/demo/trigger-anomaly", { method: "POST" }),
+  advanceTrend: () => request<{ ok: boolean; points: number }>("/api/demo/advance-trend", { method: "POST" }),
 
   // ── Entity portal (Phase 2) ──
   home: (id: number) => request<EntityHome>(`/api/entity/${id}/home`),

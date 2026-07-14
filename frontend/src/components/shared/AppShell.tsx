@@ -19,5 +19,5 @@ export function AppShell() {
 
 /** Standard page content wrapper (gutter + max width) used below the PageHeader. */
 export function PageBody({ children }: { children: React.ReactNode }) {
-  return <div className="px-7 py-6">{children}</div>;
+  return <div className="animate-page px-7 py-6">{children}</div>;
 }
