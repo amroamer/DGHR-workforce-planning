@@ -1,0 +1,7 @@
+# Treat binary assets as binary — never apply line-ending conversion.
+*.xlsx binary
+*.xls binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.docx binary
