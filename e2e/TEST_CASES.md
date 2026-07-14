@@ -85,3 +85,26 @@ Legend: **S**=simple · **M**=medium · **C**=complex · **E**=edge.
 ## I. Cross-portal live loop  (`loop.spec.ts`)
 - I1 (C) Entity submits a package → DGHR Command Center "received"/progress increases (two contexts).
 - I2 (C) DGHR opens a clarification on DM → entity Clarifications badge/list count increases.
+
+## SWEEP — exhaustive per-instance coverage of EVERY control
+- **sweep-dropdowns** — every `<select>` (Tracker ×5, Workforce ×4, Org ×2), cycling **every option**.
+- **sweep-controls** — **all 8** package toggles, checkboxes (select-all + rows), **every tab**
+  (Clarifications ×4, Demand Drivers left ×2 + right ×3), segmented filters (Readiness ×3),
+  both sortable headers, pagination on **every** table.
+- **sweep-overlays (VISUAL)** — every pop-over/drawer/panel (persona, bell, entity drawer,
+  anomaly drawer, mapping drawer, demo panel) must open **fully visible** — asserted with a
+  helper that checks the element is inside the viewport **and is the top element at its centre**
+  (catches `overflow:hidden` clipping + z-index occlusion, not just DOM presence).
+- **sweep-uploads** — **real files pushed through every dropzone in the UI** (Workforce xlsx,
+  Org csv, Workload csv, Evidence pdf) via `setInputFiles`, verifying the on-screen result.
+- **buttons** — **every visible button on all 13 screens (both portals)** asserted present,
+  labeled/iconed and usable; stub buttons clicked to confirm they respond.
+
+### Real issues this sweep found & fixed
+1. **Persona + notification dropdowns were clipped** by the page header's `overflow-hidden`
+   (functional but visually cut off) → header no longer clips; skyline clips on its own wrapper.
+2. **Entity drawer action buttons sat below the fold** in the scroll area → moved to a pinned footer.
+3. **Toggle switches had no accessible label** → added `role="switch"` + `aria-label`.
+4. Pagination counts weren't thousands-grouped ("1248" → "1,248").
+
+**Result: 98/98 tests pass; demo data reset (wiped) before & after the run.**

@@ -28,9 +28,16 @@ const ST_ICON: Record<string, React.ReactNode> = {
   Finance: <Coins size={16} />, IT: <Cpu size={16} />, Strategy: <Rocket size={16} />, "Data & Digital": <Database size={16} />,
 };
 
-function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) => void; label: string }) {
   return (
-    <button onClick={() => onChange(!on)} className="relative h-5 w-9 rounded-full transition-colors" style={{ backgroundColor: on ? "#2563EB" : "#CBD5E1" }}>
+    <button
+      onClick={() => onChange(!on)}
+      role="switch"
+      aria-checked={on}
+      aria-label={`${on ? "Disable" : "Enable"} mandatory fields for ${label}`}
+      className="relative h-5 w-9 rounded-full transition-colors"
+      style={{ backgroundColor: on ? "#2563EB" : "#CBD5E1" }}
+    >
       <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all" style={{ left: on ? 18 : 2 }} />
     </button>
   );
@@ -108,7 +115,7 @@ export function DataCollection() {
                     <span className="text-sm text-text2">{p.total_fields} fields</span>
                     <span className="flex items-center gap-1.5 text-sm text-text2">
                       {p.mandatory_fields}/{p.optional_fields}
-                      <Toggle on={p.mandatory_enabled} onChange={() => patchToggle(p)} />
+                      <Toggle on={p.mandatory_enabled} onChange={() => patchToggle(p)} label={p.name} />
                     </span>
                     <span className="text-xs"><StatusBadge value={p.evidence_required === "yes" ? "mapped" : "partial"} label={p.evidence_required === "yes" ? "Yes" : "Optional"} /><div className="mt-0.5 text-[10px] text-text3">{p.evidence_fields_label}</div></span>
                     <span className="text-xs text-text3" title={p.section_types.join(", ")}>{p.section_types.length} types</span>

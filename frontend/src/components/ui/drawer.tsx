@@ -7,12 +7,14 @@ export function Drawer({
   onClose,
   title,
   children,
+  footer,
   width = 440,
 }: {
   open: boolean;
   onClose: () => void;
   title?: React.ReactNode;
   children: React.ReactNode;
+  footer?: React.ReactNode; // pinned to the bottom, always visible (no scroll needed)
   width?: number;
 }) {
   if (!open) return null;
@@ -30,6 +32,7 @@ export function Drawer({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-5">{children}</div>
+        {footer && <div className="border-t border-border bg-white p-4">{footer}</div>}
       </div>
     </div>
   );

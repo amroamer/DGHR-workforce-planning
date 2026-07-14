@@ -35,8 +35,17 @@ export function EntityDrawer({
     } catch { toast.error("Action failed."); }
   };
 
+  const actions = data ? (
+    <div className="grid grid-cols-2 gap-2">
+      <Button variant="secondary" size="sm" onClick={() => act("remind")}><Send size={14} /> Remind</Button>
+      <Button variant="secondary" size="sm" onClick={() => act("return")}><CornerUpLeft size={14} /> Return</Button>
+      <Button variant="secondary" size="sm" onClick={() => act("clarify")}><MessageSquarePlus size={14} /> Clarify</Button>
+      <Button size="sm" onClick={() => act("approve")}><CheckCircle2 size={14} /> Approve</Button>
+    </div>
+  ) : undefined;
+
   return (
-    <Drawer open={entityId != null} onClose={onClose} title={data ? `${data.name}` : "Entity"} width={460}>
+    <Drawer open={entityId != null} onClose={onClose} title={data ? `${data.name}` : "Entity"} width={460} footer={actions}>
       {!data ? (
         <div className="text-sm text-text3">Loading…</div>
       ) : (
@@ -128,21 +137,6 @@ export function EntityDrawer({
             </div>
           </div>
 
-          {/* actions */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Button variant="secondary" size="sm" onClick={() => act("remind")}>
-              <Send size={14} /> Remind
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => act("return")}>
-              <CornerUpLeft size={14} /> Return
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => act("clarify")}>
-              <MessageSquarePlus size={14} /> Clarify
-            </Button>
-            <Button size="sm" onClick={() => act("approve")}>
-              <CheckCircle2 size={14} /> Approve
-            </Button>
-          </div>
         </div>
       )}
     </Drawer>

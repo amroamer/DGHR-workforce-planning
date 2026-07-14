@@ -35,8 +35,10 @@ export function PageHeader({
   };
 
   return (
-    <div className="relative overflow-hidden border-b border-border bg-white px-7 pb-5 pt-6">
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-[46%]">
+    <div className="relative z-30 border-b border-border bg-white px-7 pb-5 pt-6">
+      {/* Skyline is clipped only on its own wrapper, so header pop-overs are NOT cut off.
+          z-30 on the header keeps the persona/bell dropdowns above the page body. */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-[46%] overflow-hidden">
         <SkylineWatermark className="h-full w-full" />
       </div>
       <div className="relative flex items-start justify-between gap-4">
