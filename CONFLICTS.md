@@ -20,5 +20,11 @@ Three different DM datasets appear in the SPEC:
 ## C3 — "Dubai Culture" vs "Dubai Culture & Arts Authority"
 §7.1 pins entity #8 as "Dubai Culture" (DC); §7.4 quality bar and some issue rows say "Dubai Culture & Arts Authority". Implemented as a single entity named **"Dubai Culture" (DC)**; its quality bar uses that name. Flag if these should be two distinct entities.
 
+## C5 — Command Center "Missing Data" figures are mutually inconsistent (Phase 1)
+Screen 01 shows a headline KPI **"12 Entities with Missing Data"** and a separate **Missing Data Summary** card with per-category counts **Org 18 · Workforce 22 · Workload 25 · Future Drivers 31 · Evidence 20**. These can't both be derived from one coherent dataset: if 31 entities have a Future-Drivers gap, then ≥31 entities have "missing data", so the headline can't be 12.
+**Reconciliation implemented:**
+- Headline KPI **12** = derived, coherent: distinct entities that are **overdue OR returned** ("Require attention"). The seed places 2 overdue∩returned overlaps so |overdue ∪ returned| = 9 + 5 − 2 = 12.
+- Per-category card (18/22/25/31/20) = seeded display stats in `dashboard_stats` (like the screen-04 evidence aggregates), since I only seeded DM's row-level package detail, not all 59 entities'. The generator was also made realistic (Org completes first → Evidence last) so any future derivation would order correctly.
+
 ## C4 — Command Center status donut vs 59 total
 Earlier mockup (screen 01) legend counts overlapped/exceeded 59 with a footnote about overlap. SPEC §7.1 reconciles to a clean partition summing to 59 (Not Started 12 · In Progress 15 · Submitted 13 · Under Review 6 · Returned 5 · Approved 8). Implemented the §7.1 partition; the verbatim footnote about overlap is retained on the card as copy.

@@ -50,14 +50,10 @@ def command_center(db: Session, page: int = 1, page_size: int = 5) -> dict:
     ready = sum(1 for e in entities if _is_ready(e))
     blocked = total - ready
 
-    # Entities with missing data = ≥1 applicable package progress < 100 flagged critical (< 60).
-    missing_entity_ids = {
-        ep.entity_id
-        for ep in db.query(m.EntityPackage).filter(
-            m.EntityPackage.applicable.is_(True), m.EntityPackage.progress < 60
-        ).all()
-    }
-    missing_data = len(missing_entity_ids)
+    # "Entities with Missing Data / Require attention" (screen 01 KPI) = entities that are
+    # overdue or had a submission returned. (The mockup's headline 12 is inconsistent with its
+    # own per-category summary of 18–31; see CONFLICTS.md C5. This yields the headline 12.)
+    missing_data = sum(1 for e in entities if e.overdue or e.status == "returned")
 
     pct = round(received / total * 100) if total else 0
 
@@ -70,14 +66,14 @@ def command_center(db: Session, page: int = 1, page_size: int = 5) -> dict:
         for key, label in STATUS_ORDER
     ]
 
-    # missing summary per package (entities with that applicable package progress < 60)
-    missing_summary = []
-    for key, label in MISSING_KEYS:
-        cnt = db.query(m.EntityPackage).join(m.DataPackage).filter(
-            m.DataPackage.key == key, m.EntityPackage.applicable.is_(True),
-            m.EntityPackage.progress < 60,
-        ).count()
-        missing_summary.append({"key": key, "label": label, "count": cnt})
+    # Missing Data Summary (screen 01) — curated per-category counts (mockup 18/22/25/31/20).
+    # Seeded as display stats (not derivable: only DM has row-level package detail; and the
+    # mockup's per-category counts are inconsistent with its own headline 12 — see CONFLICTS C5).
+    ms_rows = (
+        db.query(m.DashboardStat).filter(m.DashboardStat.group == "missing_summary")
+        .order_by(m.DashboardStat.position).all()
+    )
+    missing_summary = [{"key": s.key, "label": s.label, "count": s.value_int} for s in ms_rows]
 
     # actions queue (prioritized): overdue first, then lowest completeness
     prioritized = sorted(entities, key=lambda e: (not e.overdue, e.completeness))

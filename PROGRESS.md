@@ -29,7 +29,25 @@ Frontend http://localhost:5183 · Backend http://localhost:8010 (/docs) · Postg
 - See CONFLICTS.md for the surfaced DM / quality-score reconciliations (C1–C4) awaiting operator confirmation.
 
 ## Phase 1 — DGHR portal, read-only
-Status: not started
+Status: **COMPLETE ✓** (gate passed)
+
+Screens 01–04 built pixel-faithful and fully data-bound + the §9.7 entity drawer.
+
+### Backend endpoints added
+`/dghr/tracker` (server-side wave/status/reviewer/package/due/search filters + sort + pagination), `/tracker/blocked-summary`, `/tracker/followups`, `/tracker/export.csv`, `/dghr/config` (+ `PATCH /config/packages/{id}` toggle, `POST /config/publish`), `/dghr/quality` (+ `PATCH /issues/{id}`), `/dghr/entities/{id}` (drawer). New `dashboard_stats` table holds pinned aggregates not derivable from row-level data (evidence 126/214/372, blocked breakdown, missing-summary 18/22/25/31/20, pass-rate).
+
+### Gate checklist
+- [x] Side-by-side vs PNGs — layout/copy/badges/charts match (see docs/progress/phase-1/)
+- [x] `grep` finds no numeric metric literals in `pages/`
+- [x] Tracker filters compose server-side (verified wave+status, due+sort, search)
+- [x] CSV export downloads (text/csv, attachment, 59 rows)
+- [x] Every "View all →" resolves (navigate or "Available in the full release" toast — no dead links)
+- [x] Entity drawer works (opened from Command Center + Tracker ⋯)
+
+### Calibration notes (CONFLICTS C5/C6 added)
+- Command Center: `missing_data` KPI = 12 (derived: overdue ∪ returned); missing-summary 18/22/25/31/20 seeded.
+- Data Quality: avg quality ≈ 82 (renders 83), rules pass-rate pinned to mockup's 86.5% (its per-category rows compute to 88.4%).
+- Tracker default order preserves pinned DHA/RTA/DM… (seed order); avg completeness 73 (≈72%).
 
 ## Phase 2 — Entity portal, read-only
 Status: not started

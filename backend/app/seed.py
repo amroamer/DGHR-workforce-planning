@@ -111,8 +111,10 @@ def _distribute_others() -> list[dict]:
     # 11 forecasting-ready total. Among the pinned only RTA + DP qualify (DC's canonical
     # quality is 64 < 75 threshold), so 9 must come from the others.
     ready_budget = 9
-    overdue_budget = 8
-    low_completeness_budget = 12  # 14 total <60; 2 pinned (DCAA 48, DSC 34)
+    # Exactly 11 "low" others (completeness < 60) → 14 total with the 3 pinned <60
+    # (DCAA 48, DSC 34, DET 56), matching the tracker "Low Completeness (<60%) 14" counter.
+    # Chosen so the overall mean(completeness) lands ≈ 72 (screen 03 "Avg. Completeness 72%").
+    low_indices = {0, 2, 4, 6, 8, 10, 12, 37, 38, 39, 40}
     for i, (name, code) in enumerate(OTHERS):
         status = statuses[i]
         wave = waves[i]
@@ -120,39 +122,39 @@ def _distribute_others() -> list[dict]:
         completeness: int
         quality: int | None
         overdue = False
+        is_low = i in low_indices
 
-        if status in ("submitted", "under_review") and ready_budget > 0:
+        # Quality scores are tuned so mean(quality_score over scored entities) ≈ 82
+        # (screen 04 "Average Quality Score 82" + highlighted "Overall Average" bar).
+        if is_low:
+            completeness = 34 + (i % 5) * 5  # 34..54 (< 60)
+            quality = None if status == "not_started" else 70 + (i % 4) * 3
+        elif status in ("submitted", "under_review") and ready_budget > 0:
             ready = True
             ready_budget -= 1
             completeness = 82 + (i % 6) * 2  # 82..92
-            quality = 78 + (i % 5) * 3       # 78..90
+            quality = 84 + (i % 5) * 2       # 84..92
         elif status == "approved":
-            completeness = 90 + (i % 4) * 2  # approved but excluded from ready rule
-            quality = 85 + (i % 4)
+            completeness = 88 + (i % 4) * 2  # 88..94 (excluded from ready rule)
+            quality = 88 + (i % 4) * 2       # 88..94
         elif status in ("submitted", "under_review"):
-            completeness = 62 + (i % 5) * 3  # 62..74 (fails >=80)
-            quality = 70 + (i % 4) * 2
+            completeness = 72 + (i % 4) * 2  # 72..78 (fails >=80)
+            quality = 82 + (i % 4) * 2       # 82..88
         elif status == "returned":
-            completeness = 55 + (i % 3) * 5
-            quality = 66 + (i % 3) * 3
+            completeness = 64 + (i % 3) * 4  # 64..72
+            quality = 78 + (i % 3) * 3       # 78..84
         elif status == "in_progress":
-            if low_completeness_budget > 0 and i % 2 == 0:
-                completeness = 40 + (i % 4) * 4  # <60
-                low_completeness_budget -= 1
-            else:
-                completeness = 60 + (i % 5) * 4
-            quality = 60 + (i % 5) * 3
-        else:  # not_started
-            if low_completeness_budget > 0:
-                completeness = 10 + (i % 5) * 6  # <60
-                low_completeness_budget -= 1
-            else:
-                completeness = 30 + (i % 4) * 5
+            completeness = 70 + (i % 5) * 4  # 70..86
+            quality = 80 + (i % 5) * 3       # 80..92
+        else:  # not_started (non-low)
+            completeness = 62 + (i % 4) * 4  # 62..74
             quality = None
 
-        if status != "approved" and overdue_budget > 0 and (i % 5 == 0):
+        # Deterministic overdue set (8 others + DHA pinned = 9 total). Indices 39 & 40 are
+        # in the "returned" block, giving exactly 2 overdue∩returned overlap so that the
+        # "Entities with Missing Data / Require attention" KPI = |overdue ∪ returned| = 12.
+        if i in {0, 5, 10, 15, 25, 30, 39, 40}:
             overdue = True
-            overdue_budget -= 1
 
         rows.append({
             "name": name, "code": code, "wave": wave, "status": status,
@@ -318,9 +320,10 @@ def seed_entity_packages(db: Session, entities: dict[str, m.Entity], pkgs: dict[
             if pinned is not None:
                 progress = pinned[idx]
             else:
-                # spread around entity completeness deterministically
+                # Realistic ordering: Org Structure completes first, Evidence last
+                # (progress decreases with package index).
                 base = e.completeness
-                progress = max(0, min(100, base + (idx - 2) * 8))
+                progress = max(0, min(100, base + (2 - idx) * 8))
             if progress >= 100:
                 status = "submitted"
             elif progress == 0:
@@ -708,9 +711,19 @@ def seed_cases(db: Session, entities: dict[str, m.Entity], users: dict[str, m.Us
                       due_date=TODAY + timedelta(days=(i % 7) + 1),
                       issue_summary="Please review and clarify submitted data.", corrections=[]))
         seq += 1
+    # 16 open returns span exactly 8 distinct entities (tracker "Returned Entities" = 8;
+    # clarifications "Returned Submissions" = 16). Pinned 3 (DHA/DM/Islamic Affairs) + 5 more.
+    return_pool_names = [
+        "Dubai Health Authority", "Dubai Municipality", "Islamic Affairs & Charitable Activities Dept.",
+        "Dubai Courts", "Land Department", "Dubai Customs",
+        "General Directorate of Residency & Foreigners Affairs", "Dubai Media Incorporated",
+    ]
+    # DM is excluded from the top-up (its single pinned RTN keeps DM at exactly 3 open cases);
+    # the other 7 pool entities carry the remaining returns → still 8 distinct returned entities.
+    return_pool = [entities[n] for n in return_pool_names if n in entities and n != "Dubai Municipality"]
     rseq = 392
     for i in range(16 - open_rtn):
-        e = ent_pool[(i + 5) % len(ent_pool)]
+        e = return_pool[i % len(return_pool)]
         db.add(m.Case(ref=f"RTN-2025-{rseq:05d}", kind="return", entity_id=e.id,
                       package_label="Workforce Plan Q1 2025", priority=["High", "Medium", "Low"][i % 3],
                       category="Workforce Data", status="open", assigned_to=aisha.id,
@@ -797,6 +810,43 @@ def seed_vision(db: Session) -> None:
     db.flush()
 
 
+def seed_dashboard_stats(db: Session) -> None:
+    """Pinned aggregate display stats for screens 03/04 (SPEC §7.4)."""
+    rows: list[tuple[str, str, str, int | None, str | None, dict, int]] = [
+        # quality header aggregates
+        ("quality", "avg_quality_delta", "vs last submission", 6, "+6 pts", {}, 0),
+        # Mockup shows aggregate pass rate 86.5% (its own per-category rows actually sum to
+        # 88.4% — an inconsistency in the deck; pinned here to replicate the mockup, see C6).
+        ("quality", "rules_pass_rate", "of total rules", None, "86.5", {}, 3),
+        ("quality", "missing_mandatory", "Missing Mandatory Fields", 126, None, {"entities": 24}, 1),
+        ("quality", "duplicate_titles", "Duplicate Job Titles", 37, None, {"entities": 18}, 2),
+        # evidence quality overview
+        ("quality_evidence", "missing", "Missing Evidence", 126, None, {"entities": 24, "pct": 17.8}, 0),
+        ("quality_evidence", "weak", "Weak Evidence", 214, None, {"entities": 31, "pct": 30.2}, 1),
+        ("quality_evidence", "acceptable", "Acceptable Evidence", 372, None, {"entities": 42, "pct": 52.6}, 2),
+        # top evidence gaps
+        ("evidence_gaps", "role_justification", "Role Justification Documents", 86, None, {}, 0),
+        ("evidence_gaps", "workload_methodology", "Workload Methodology", 62, None, {}, 1),
+        ("evidence_gaps", "org_charts", "Organizational Charts", 38, None, {}, 2),
+        # command center: missing data summary (screen 01)
+        ("missing_summary", "org_structure", "Org Structure", 18, None, {}, 0),
+        ("missing_summary", "workforce_baseline", "Workforce Baseline", 22, None, {}, 1),
+        ("missing_summary", "workload_data", "Workload Data", 25, None, {}, 2),
+        ("missing_summary", "future_drivers", "Future Drivers", 31, None, {}, 3),
+        ("missing_summary", "evidence", "Evidence / Sources", 20, None, {}, 4),
+        # tracker: where submissions are blocked
+        ("blocked_summary", "missing_evidence", "Missing Evidence / Sources", 16, None, {"pct": 32}, 0),
+        ("blocked_summary", "incomplete_workload", "Incomplete Workload Data", 12, None, {"pct": 24}, 1),
+        ("blocked_summary", "future_drivers", "Future Drivers Not Provided", 9, None, {"pct": 18}, 2),
+        ("blocked_summary", "org_issues", "Org Structure Issues", 7, None, {"pct": 14}, 3),
+        ("blocked_summary", "other", "Other / Data Quality", 6, None, {"pct": 12}, 4),
+    ]
+    for group, key, label, vint, vtext, meta_, pos in rows:
+        db.add(m.DashboardStat(group=group, key=key, label=label, value_int=vint,
+                               value_text=vtext, meta=meta_, position=pos))
+    db.flush()
+
+
 def seed_app_state(db: Session) -> None:
     trend = [
         {"label": "Apr 28", "value": 8}, {"label": "May 5", "value": 18},
@@ -834,10 +884,16 @@ def run_seed() -> None:
         seed_dm_workload(db, dm_e)
         seed_dm_drivers_evidence(db, dm_e)
 
+        # Pin quality scores used by the screen-04 quality bars where the entity isn't pinned.
+        if "Land Department" in entities:
+            entities["Land Department"].quality_score = 68
+        db.flush()
+
         seed_quality(db, entities, users)
         seed_cases(db, entities, users)
         seed_notifications_alerts(db, entities)
         seed_vision(db)
+        seed_dashboard_stats(db)
         seed_app_state(db)
 
         db.commit()

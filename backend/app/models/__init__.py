@@ -386,6 +386,22 @@ class InsightQuote(Base):
     tag: Mapped[str] = mapped_column(String(40), default="")
 
 
+class DashboardStat(Base):
+    """Pinned aggregate display stats that aren't derivable from row-level seeded data
+    (e.g. cross-entity evidence counts on screen 04, blocked-reason breakdown on screen 03).
+    Kept in the DB so no metric is hardcoded in the frontend."""
+
+    __tablename__ = "dashboard_stats"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    group: Mapped[str] = mapped_column(String(48))  # e.g. quality_evidence, blocked_summary
+    key: Mapped[str] = mapped_column(String(64))
+    label: Mapped[str] = mapped_column(String(120), default="")
+    value_int: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    value_text: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    meta: Mapped[dict] = mapped_column(JSONB, default=dict)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+
+
 # ─────────────────────────── App-level singletons ───────────────────────────
 class AppState(Base):
     """Single-row helper for global 'last updated' + trend series."""
