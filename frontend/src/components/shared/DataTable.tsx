@@ -161,6 +161,16 @@ export function PaginationFooter({
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
   const pages = Math.max(1, Math.ceil(total / pageSize));
+
+  // windowed page list with ellipses: 1 … (page-1) page (page+1) … last
+  const nums = new Set<number>([1, page - 1, page, page + 1, pages]);
+  const shown = [...nums].filter((p) => p >= 1 && p <= pages).sort((a, b) => a - b);
+  const items: (number | "…")[] = [];
+  shown.forEach((p, i) => {
+    if (i > 0 && p - shown[i - 1] > 1) items.push("…");
+    items.push(p);
+  });
+
   return (
     <>
       <span>
@@ -169,25 +179,32 @@ export function PaginationFooter({
       <div className="flex items-center gap-1">
         <button
           disabled={page <= 1}
+          aria-label="Previous page"
           onClick={() => onPage(page - 1)}
           className={cn("rounded-md border border-border px-2 py-1 text-xs", page <= 1 && "opacity-40")}
         >
           ‹
         </button>
-        {Array.from({ length: Math.min(pages, 5) }, (_, i) => i + 1).map((p) => (
-          <button
-            key={p}
-            onClick={() => onPage(p)}
-            className={cn(
-              "min-w-[28px] rounded-md border px-2 py-1 text-xs",
-              p === page ? "border-primary bg-primary text-white" : "border-border",
-            )}
-          >
-            {p}
-          </button>
-        ))}
+        {items.map((it, i) =>
+          it === "…" ? (
+            <span key={`e${i}`} className="px-1 text-text3">…</span>
+          ) : (
+            <button
+              key={it}
+              aria-label={it === pages && pages > 1 ? "Last page" : undefined}
+              onClick={() => onPage(it)}
+              className={cn(
+                "min-w-[28px] rounded-md border px-2 py-1 text-xs",
+                it === page ? "border-primary bg-primary text-white" : "border-border",
+              )}
+            >
+              {it}
+            </button>
+          ),
+        )}
         <button
           disabled={page >= pages}
+          aria-label="Next page"
           onClick={() => onPage(page + 1)}
           className={cn("rounded-md border border-border px-2 py-1 text-xs", page >= pages && "opacity-40")}
         >

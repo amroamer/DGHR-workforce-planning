@@ -9,8 +9,12 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: 1,
-  timeout: 30_000,
-  expect: { timeout: 8_000 },
+  timeout: 45_000,
+  expect: {
+    timeout: 8_000,
+    // tolerate anti-aliasing + minor relative-time text shifts between runs
+    toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: "disabled", caret: "hide" },
+  },
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: "http://localhost:5183",

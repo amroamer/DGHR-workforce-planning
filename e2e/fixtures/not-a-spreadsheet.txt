@@ -1,0 +1,1 @@
+This is a plain text file, not a spreadsheet. Uploading it should be rejected gracefully.

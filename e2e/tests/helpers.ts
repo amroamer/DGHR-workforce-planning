@@ -24,6 +24,64 @@ export function pageTitle(page: Page) {
   return page.locator("h1").first();
 }
 
+/** Assert the page has NO horizontal overflow (nothing spilling out of its box sideways). */
+export async function assertNoHorizontalOverflow(page: Page, label = "page") {
+  const overflow = await page.evaluate(() => {
+    const de = document.documentElement;
+    return { scrollW: de.scrollWidth, clientW: de.clientWidth };
+  });
+  // 1px tolerance for sub-pixel rounding
+  expect(overflow.scrollW, `${label}: horizontal overflow (content spills out ${overflow.scrollW - overflow.clientW}px)`)
+    .toBeLessThanOrEqual(overflow.clientW + 1);
+}
+
+/**
+ * Assert NO visible element spills past the right edge of the viewport (off-screen / clipped).
+ * Scans cards, buttons, tables, inputs, headings, KPI values — the meaningful boxes.
+ */
+export async function assertElementsInBounds(page: Page, label = "screen") {
+  const bad = await page.evaluate(() => {
+    const vw = document.documentElement.clientWidth;
+    const sel = "main .rounded-card, main button, main select, main input, main h1, main h2, main h3";
+    const offenders: string[] = [];
+    // an element inside a horizontally-scrollable/clipped ancestor is contained by design
+    const insideScrollable = (el: Element): boolean => {
+      let p = el.parentElement;
+      while (p && p.tagName !== "MAIN") {
+        const ox = getComputedStyle(p).overflowX;
+        if (ox === "auto" || ox === "scroll" || ox === "hidden") return true;
+        p = p.parentElement;
+      }
+      return false;
+    };
+    document.querySelectorAll(sel).forEach((el) => {
+      const r = (el as HTMLElement).getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) return; // hidden
+      if (insideScrollable(el)) return; // scrollable/clipped container handles it
+      if (r.right > vw + 1) {
+        offenders.push(`${el.tagName}.${(el.className || "").toString().slice(0, 30)} right=${Math.round(r.right)} > vw=${vw}`);
+      }
+    });
+    return offenders.slice(0, 8);
+  });
+  expect(bad, `${label}: elements spill past the right edge:\n${bad.join("\n")}`).toEqual([]);
+}
+
+/** Delay every API response by ms (to catch loading/skeleton states). */
+export async function delayApi(page: Page, ms: number) {
+  await page.route("**/api/**", async (route) => {
+    await new Promise((r) => setTimeout(r, ms));
+    await route.continue();
+  });
+}
+
+/** Make a specific API path fail with 500 (to test error handling). */
+export async function failApi(page: Page, pathPart: string) {
+  await page.route(`**${pathPart}**`, (route) =>
+    route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ detail: "Simulated failure" }) }),
+  );
+}
+
 /**
  * Assert a locator is not just "in the DOM" but ACTUALLY VISIBLE to a user:
  *  1) Playwright-visible (laid out, not display/visibility hidden)
