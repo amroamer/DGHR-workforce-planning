@@ -90,7 +90,26 @@ Both Clarifications screens (§9.6 DGHR, §10.6 Entity) built as a shared three-
 Evidence: docs/progress/phase-3/
 
 ## Phase 4 — Import engine + AI + demo assets
-Status: not started
+Status: **COMPLETE ✓** (gate passed)
+
+### Backend
+`services/import_engine.py` — pandas/openpyxl parse with case-insensitive header synonyms, friendly 422 on missing Section/Job Title/FTE, rapidfuzz job-title mapping (exact/alias/≥90 mapped · 70–89 partial · <70 unmapped), validations (missing grade, ≤0 FTE, missing employment type, inconsistent job family), workforce/org/workload imports + styled `template.xlsx`. `services/ai_service.py` + `fallbacks.py` — 3 features (driver summary, anomaly narrative, job-title mapping) via Anthropic when configured, deterministic fallback otherwise (analyst voice, §13). `routers/imports.py` (+ evidence upload), `routers/ai.py`, workforce PATCH.
+
+### Demo assets
+`demo-assets/generate_demo_files.py` → `HR_Extract_Demo.xlsx` (1,248 rows engineered so import reports **1187 mapped / 34 partial / 27 unmapped** and **18/12/5/2** issues) + 5 evidence PDFs.
+
+### Frontend
+Workforce import dropzone (drag/drop + staged "Parsing → Mapping → Validating"), Mapping Drawer (unmapped/partial titles + AI suggestion + confidence + Accept → live remap), Run Validation. AI: Data Quality anomaly "Generate AI Narrative" (✨ Analyzing…), Demand Drivers "Run AI Summary" + evidence upload. Org/Workload import + template downloads.
+
+### Gate checklist (verified)
+- [x] `HR_Extract_Demo.xlsx` → 1248 / 95.1% / 34 / 27 and 18/12/5/2 issues
+- [x] Mapping Drawer accept-flow patches records live (PATCH /workforce/{id})
+- [x] Org + workload imports + template.xlsx downloads (proper headers)
+- [x] Three AI features respond ≤10s in the §13 voice (fallback mode)
+- [x] Evidence upload stores file + lists (evidence count 32→33)
+- [x] tsc strict clean · checks 21/21
+
+Evidence: docs/progress/phase-4/
 
 ## Phase 5 — Vision teaser + demo polish
 Status: not started

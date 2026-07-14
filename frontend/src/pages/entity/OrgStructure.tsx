@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -22,7 +22,13 @@ const Dot = ({ s }: { s: string }) => <span className="h-2.5 w-2.5 shrink-0 roun
 export function OrgStructure() {
   const { entityId } = useAudience();
   const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
   const submit = async () => { if (entityId == null) return; await api.submitPackage(entityId, "org_structure"); qc.invalidateQueries(); toast.success("Organization Structure submitted for review."); };
+  const doImport = async (file: File) => {
+    if (entityId == null) return;
+    try { const r = await api.importOrg(entityId, file); qc.invalidateQueries(); toast.success(`Imported ${r.imported} sections.`); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Import failed."); }
+  };
   const [filters, setFilters] = useState<{ sector?: string; department?: string; status?: string; search?: string; page: number }>({ page: 1 });
   const [openSectors, setOpenSectors] = useState<Set<string>>(new Set());
   const set = (p: Partial<typeof filters>) => setFilters((f) => ({ ...f, ...p, page: p.page ?? 1 }));
@@ -93,7 +99,8 @@ export function OrgStructure() {
               <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5">
                 <h3 className="text-base font-semibold text-text1">Sections ({k?.sections})</h3>
                 <div className="flex items-center gap-2">
-                  <Button variant="secondary" size="sm" onClick={() => toast.message("Import is wired in Phase 4.")}><Upload size={14} /> Import Structure</Button>
+                  <input ref={fileRef} type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = ""; }} />
+                  <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}><Upload size={14} /> Import Structure</Button>
                   <Button variant="secondary" size="sm" onClick={() => toast.message("Available in the full release")}><Plus size={14} /> Add Section</Button>
                 </div>
               </div>
@@ -143,7 +150,7 @@ export function OrgStructure() {
                   Drag and drop file here or <span className="text-primary">browse to upload</span>
                   <div className="mt-1">Supported formats: .xlsx, .csv</div>
                 </div>
-                <Button variant="secondary" size="sm" className="mt-2 w-full" onClick={() => toast.message("Template download is wired in Phase 4.")}><Download size={14} /> Download Template</Button>
+                <Button variant="secondary" size="sm" className="mt-2 w-full" onClick={() => entityId != null && window.open(api.orgTemplateUrl(entityId), "_blank")}><Download size={14} /> Download Template</Button>
               </Card>
               <Card className="p-4">
                 <div className="mb-2 flex items-center justify-between"><span className="text-sm font-semibold text-text1">Structure Rules</span><button onClick={() => toast.message("Available in the full release")} className="text-xs font-semibold text-primary hover:underline">View all</button></div>

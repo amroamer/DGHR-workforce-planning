@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -32,7 +33,13 @@ function Trend({ pct }: { pct: number }) {
 export function Workload() {
   const { entityId } = useAudience();
   const qc = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
   const submit = async () => { if (entityId == null) return; await api.submitPackage(entityId, "workload_service"); qc.invalidateQueries(); toast.success("Workload & Service Data submitted to DGHR."); };
+  const doImport = async (file: File) => {
+    if (entityId == null) return;
+    try { const r = await api.importWorkload(entityId, file); qc.invalidateQueries(); toast.success(`Updated ${r.updated} section volumes.`); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Import failed."); }
+  };
   const { data } = useQuery({ queryKey: ["workload", entityId], queryFn: () => api.workload(entityId!), enabled: entityId != null });
   const k = data?.kpis;
   const empty = (data?.rows.length ?? 0) === 0;
@@ -58,7 +65,8 @@ export function Workload() {
                 <h3 className="text-base font-semibold text-text1">Workload Metrics by Section</h3>
                 <div className="flex items-center gap-2">
                   <Button variant="secondary" size="sm" onClick={() => toast.message("Available in the full release")}><Plus size={14} /> Add Metric</Button>
-                  <Button variant="secondary" size="sm" onClick={() => toast.message("Import is wired in Phase 4.")}><Upload size={14} /> Import Volumes</Button>
+                  <input ref={fileRef} type="file" accept=".xlsx,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = ""; }} />
+                  <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}><Upload size={14} /> Import Volumes</Button>
                   <Button variant="secondary" size="sm" onClick={() => toast.success("Workload data validated.")}><ShieldCheck size={14} /> Validate Data</Button>
                 </div>
               </div>

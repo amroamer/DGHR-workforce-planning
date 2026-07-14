@@ -75,6 +75,34 @@ def my_submissions(entity_id: int, db: Session = Depends(get_db)) -> dict:
     return entity_views.build_my_submissions(db, entity_id)
 
 
+class WorkforcePatch(BaseModel):
+    job_family: str | None = None
+    grade: int | None = None
+    employment_type: str | None = None
+    critical_role: bool | None = None
+    map_status: str | None = None
+
+
+@router.patch("/{entity_id}/workforce/{record_id}")
+def patch_workforce(entity_id: int, record_id: int, body: WorkforcePatch, db: Session = Depends(get_db)) -> dict:
+    r = db.get(m.WorkforceRecord, record_id)
+    if not r or r.entity_id != entity_id:
+        from fastapi import HTTPException
+        raise HTTPException(404, "Record not found")
+    if body.job_family is not None:
+        r.job_family = body.job_family
+    if body.grade is not None:
+        r.grade = body.grade
+    if body.employment_type is not None:
+        r.employment_type = body.employment_type
+    if body.critical_role is not None:
+        r.critical_role = body.critical_role
+    if body.map_status is not None:
+        r.map_status = body.map_status
+    db.commit()
+    return {"ok": True, "id": r.id, "map_status": r.map_status}
+
+
 class SaveDraft(BaseModel):
     progress: int | None = None
 

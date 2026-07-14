@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import cors_origins
 from app.db import get_db
-from app.routers import cases, demo, dghr, entity, notifications
+from app.routers import ai, cases, demo, dghr, entity, imports, notifications
 from app.services import workflow
 from sqlalchemy.orm import Session
 from fastapi import Depends
@@ -48,5 +48,7 @@ def persona_entities(db: Session = Depends(get_db)) -> dict:
 app.include_router(dghr.router)
 app.include_router(entity.router)
 app.include_router(cases.router)
+app.include_router(imports.router)
+app.include_router(ai.router)
 app.include_router(notifications.router)
 app.include_router(demo.router)

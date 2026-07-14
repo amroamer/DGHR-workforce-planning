@@ -41,6 +41,18 @@ export function DataQuality() {
   const [page, setPage] = useState(1);
   const [anomaly, setAnomaly] = useState<QualityAnomaly | null>(null);
   const [narrative, setNarrative] = useState<string | null>(null);
+  const [narrLoading, setNarrLoading] = useState(false);
+
+  const generateNarrative = async (id: number) => {
+    setNarrLoading(true);
+    await new Promise((r) => setTimeout(r, 1800)); // "Analyzing…" beat
+    try {
+      const res = await api.aiAnomalyNarrative(id);
+      setNarrative(res.narrative);
+    } finally {
+      setNarrLoading(false);
+    }
+  };
   const { data } = useQuery({ queryKey: ["quality", page], queryFn: () => api.quality(page, 8), refetchInterval: 4000 });
   const k = data?.kpis;
 
@@ -188,13 +200,15 @@ export function DataQuality() {
               <div className="mt-1 text-xs text-text3">{anomaly.entity} · {PKG_LABEL[anomaly.package_key] ?? anomaly.package_key}</div>
               <div className="mt-2 flex items-center gap-2"><StatusBadge value={anomaly.severity.toLowerCase()} label={anomaly.severity} /><span className="text-xs text-text2">AI confidence {anomaly.confidence}%</span></div>
             </div>
-            {narrative ? (
-              <div className="rounded-card border border-teal/30 bg-teal-bg/40 p-4 text-sm text-text1">
+            {narrLoading ? (
+              <div className="flex flex-col items-center py-6 text-teal"><Sparkles size={24} className="mb-2 animate-pulse" /><div className="text-sm font-semibold">✨ Analyzing…</div></div>
+            ) : narrative ? (
+              <div className="whitespace-pre-line rounded-card border border-teal/30 bg-teal-bg/40 p-4 text-sm text-text1">
                 <div className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-teal"><Sparkles size={13} /> AI Narrative</div>
                 {narrative}
               </div>
             ) : (
-              <Button variant="secondary" className="w-full" onClick={() => setNarrative("AI narrative generation is wired in Phase 4. It will produce a specific, evidence-seeking analysis with recommended checks.")}>
+              <Button variant="secondary" className="w-full" onClick={() => generateNarrative(anomaly.id)}>
                 <Sparkles size={15} /> Generate AI Narrative
               </Button>
             )}

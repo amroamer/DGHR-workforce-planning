@@ -73,6 +73,36 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** Multipart upload — browser sets the Content-Type boundary, so don't set it. */
+async function upload<T>(path: string, form: FormData): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, { method: "POST", body: form });
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      detail = (await res.json()).detail ?? detail;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(res.status, detail);
+  }
+  return (await res.json()) as T;
+}
+
+export interface ImportResult {
+  imported: number;
+  mapped: { count: number; pct: number };
+  partial: { count: number; pct: number };
+  unmapped: { count: number; pct: number };
+  issues_summary: Record<string, number>;
+  sample_issues: { section: string; job_title: string; issues: string[] }[];
+}
+export interface MapSuggestion {
+  input: string;
+  suggested_title: string | null;
+  family: string | null;
+  confidence: number;
+}
+
 export const api = {
   base: BASE,
 
@@ -188,6 +218,36 @@ export const api = {
     request<{ ok: boolean; reviewed: number }>("/api/dghr/actions/bulk-review", { method: "POST", body: JSON.stringify({ entity_ids }) }),
   returnSubmission: (body: { entity_id: number; package_key?: string; reason?: string }) =>
     request<{ ok: boolean; ref: string }>("/api/dghr/actions/return", { method: "POST", body: JSON.stringify(body) }),
+
+  // ── Import engine + AI + evidence (Phase 4) ──
+  importWorkforce: (entityId: number, file: File) => {
+    const f = new FormData(); f.append("file", file);
+    return upload<ImportResult>(`/api/entity/${entityId}/workforce/import`, f);
+  },
+  workforceValidate: (entityId: number) =>
+    request<{ issues_summary: Record<string, number>; open_issues: number }>(`/api/entity/${entityId}/workforce/validate`, { method: "POST" }),
+  patchWorkforce: (entityId: number, recordId: number, body: { job_family?: string; map_status?: string }) =>
+    request<{ ok: boolean }>(`/api/entity/${entityId}/workforce/${recordId}`, { method: "PATCH", body: JSON.stringify(body) }),
+  importOrg: (entityId: number, file: File) => {
+    const f = new FormData(); f.append("file", file);
+    return upload<{ imported: number }>(`/api/entity/${entityId}/org-structure/import`, f);
+  },
+  importWorkload: (entityId: number, file: File) => {
+    const f = new FormData(); f.append("file", file);
+    return upload<{ updated: number }>(`/api/entity/${entityId}/workload/import`, f);
+  },
+  workforceTemplateUrl: (entityId: number) => `${BASE}/api/entity/${entityId}/workforce/template.xlsx`,
+  orgTemplateUrl: (entityId: number) => `${BASE}/api/entity/${entityId}/org-structure/template.xlsx`,
+  uploadEvidence: (entityId: number, file: File, linked_label = "", quality = "Medium") => {
+    const f = new FormData(); f.append("file", file); f.append("linked_label", linked_label); f.append("quality", quality);
+    return upload<{ ok: boolean; id: number; filename: string }>(`/api/entity/${entityId}/evidence`, f);
+  },
+  aiDriverSummary: (entityId: number) =>
+    request<{ summary: string; source: string }>(`/api/ai/driver-summary/${entityId}`, { method: "POST" }),
+  aiAnomalyNarrative: (anomalyId: number) =>
+    request<{ narrative: string; source: string }>(`/api/ai/anomaly-narrative/${anomalyId}`, { method: "POST" }),
+  aiMapTitles: (titles: string[]) =>
+    request<{ suggestions: MapSuggestion[]; source: string }>("/api/ai/map-titles", { method: "POST", body: JSON.stringify({ titles }) }),
 
   resetDemo: () =>
     request<{ ok: boolean; message: string }>("/api/demo/reset", { method: "POST" }),

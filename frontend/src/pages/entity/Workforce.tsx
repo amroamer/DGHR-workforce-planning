@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -16,6 +16,7 @@ import { KpiCard } from "@/components/shared/KpiCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { PaginationFooter } from "@/components/shared/DataTable";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { MappingDrawer } from "@/components/shared/MappingDrawer";
 
 const MAP_TONE: Record<string, string> = { mapped: "#16A34A", partial: "#EA8A00", unmapped: "#E11D48" };
 
@@ -23,7 +24,34 @@ export function Workforce() {
   const { entityId } = useAudience();
   const qc = useQueryClient();
   const [filters, setFilters] = useState<WorkforceFilters>({ page: 1, page_size: 25 });
+  const [stage, setStage] = useState<string | null>(null);
+  const [showMapping, setShowMapping] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const set = (p: Partial<WorkforceFilters>) => setFilters((f) => ({ ...f, ...p, page: p.page ?? 1 }));
+
+  const doImport = async (file: File) => {
+    if (entityId == null) return;
+    try {
+      setStage("Parsing file…");
+      await new Promise((r) => setTimeout(r, 700));
+      setStage("Mapping job titles…");
+      const result = await api.importWorkforce(entityId, file);
+      setStage("Running validations…");
+      await new Promise((r) => setTimeout(r, 600));
+      qc.invalidateQueries();
+      toast.success(`Imported ${fmt(result.imported)} records — ${result.mapped.pct}% auto-mapped.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Import failed.");
+    } finally {
+      setStage(null);
+    }
+  };
+  const runValidation = async () => {
+    if (entityId == null) return;
+    await api.workforceValidate(entityId);
+    qc.invalidateQueries();
+    toast.success("Validation complete.");
+  };
   const submit = async () => {
     if (entityId == null) return;
     await api.submitPackage(entityId, "current_workforce");
@@ -59,10 +87,24 @@ export function Workforce() {
           <Card className="p-5">
             <div className="mb-1 text-sm font-semibold text-text1">Import Workforce Data</div>
             <p className="mb-3 text-xs text-text3">Upload your HR extract or Excel file to populate the workforce table.</p>
-            <div className="rounded-card border border-dashed border-border p-4 text-center">
-              <UploadCloud size={22} className="mx-auto mb-2 text-primary" />
-              <Button size="sm" onClick={() => toast.message("Live Excel import is wired in Phase 4.")}><UploadCloud size={14} /> Upload File</Button>
-              <div className="mt-2 text-[11px] text-text3">Accepted: .xlsx, .xls, .csv · Max 25MB</div>
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) doImport(f); e.target.value = ""; }} />
+            <div
+              className="rounded-card border border-dashed border-border p-4 text-center"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) doImport(f); }}
+            >
+              {stage ? (
+                <div className="py-2 text-teal">
+                  <UploadCloud size={22} className="mx-auto mb-2 animate-pulse" />
+                  <div className="text-sm font-semibold">{stage}</div>
+                </div>
+              ) : (
+                <>
+                  <UploadCloud size={22} className="mx-auto mb-2 text-primary" />
+                  <Button size="sm" onClick={() => fileRef.current?.click()}><UploadCloud size={14} /> Upload File</Button>
+                  <div className="mt-2 text-[11px] text-text3">Drag &amp; drop or browse · .xlsx, .xls, .csv · Max 25MB</div>
+                </>
+              )}
             </div>
             <div className="mt-3 flex items-center gap-2 rounded-lg border border-border p-2 text-xs">
               <FileSpreadsheet size={16} className="text-success" />
@@ -82,7 +124,7 @@ export function Workforce() {
                 </div>
               ))}
             </div>
-            <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={() => toast.message("Mapping drawer is wired in Phase 4.")}><Link2 size={14} /> Map Fields</Button>
+            <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={() => setShowMapping(true)}><Link2 size={14} /> Map Fields</Button>
           </Card>
 
           <Card className="p-5">
@@ -93,7 +135,7 @@ export function Workforce() {
                 <div key={v.label} className="flex items-center justify-between text-sm"><span className="text-text2">{v.label}</span><span className="font-semibold text-danger">{v.count}</span></div>
               ))}
             </div>
-            <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={() => toast.success("Validation complete.")}><ShieldCheck size={14} /> Run Validation</Button>
+            <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={runValidation}><ShieldCheck size={14} /> Run Validation</Button>
           </Card>
         </div>
 
@@ -158,6 +200,7 @@ export function Workforce() {
         </>
         )}
       </PageBody>
+      {entityId != null && <MappingDrawer entityId={entityId} open={showMapping} onClose={() => setShowMapping(false)} />}
     </>
   );
 }
