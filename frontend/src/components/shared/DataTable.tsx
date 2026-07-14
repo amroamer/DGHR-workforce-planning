@@ -1,6 +1,6 @@
 import * as React from "react";
 import { ChevronsUpDown, ChevronUp, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, fmt } from "@/lib/utils";
 
 // Generic table (SPEC §4.3): sticky spec'd header, 52-56px rows, hover, optional
 // checkbox column, sortable headers, server-side pagination footer, row ⋯ menu.
@@ -164,7 +164,7 @@ export function PaginationFooter({
   return (
     <>
       <span>
-        Showing {from} to {to} of {total} {unit}
+        Showing {fmt(from)} to {fmt(to)} of {fmt(total)} {unit}
       </span>
       <div className="flex items-center gap-1">
         <button
