@@ -4,13 +4,28 @@ import type {
   BlockedSummary,
   CommandCenterPayload,
   ConfigPayload,
+  DriversPayload,
   EntityDetail,
+  EntityHome,
   Followups,
+  MySubmissions,
   NotificationList,
   NotificationPoll,
+  OrgStructure,
   QualityPayload,
   TrackerPayload,
+  WorkforcePayload,
+  WorkloadPayload,
 } from "./types";
+
+export interface WorkforceFilters {
+  search?: string;
+  section?: string;
+  employment_type?: string;
+  status?: string;
+  page?: number;
+  page_size?: number;
+}
 
 export interface TrackerFilters {
   wave?: string;
@@ -126,6 +141,22 @@ export const api = {
     }),
 
   entityDetail: (id: number) => request<EntityDetail>(`/api/dghr/entities/${id}`),
+
+  // ── Entity portal (Phase 2) ──
+  home: (id: number) => request<EntityHome>(`/api/entity/${id}/home`),
+  orgStructure: (id: number, params: Record<string, string | number | undefined> = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== "") q.set(k, String(v)); });
+    return request<OrgStructure>(`/api/entity/${id}/org-structure?${q.toString()}`);
+  },
+  workforce: (id: number, filters: WorkforceFilters = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(filters).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== "") q.set(k, String(v)); });
+    return request<WorkforcePayload>(`/api/entity/${id}/workforce?${q.toString()}`);
+  },
+  workload: (id: number) => request<WorkloadPayload>(`/api/entity/${id}/workload`),
+  drivers: (id: number) => request<DriversPayload>(`/api/entity/${id}/drivers`),
+  mySubmissions: (id: number) => request<MySubmissions>(`/api/entity/${id}/my-submissions`),
 
   resetDemo: () =>
     request<{ ok: boolean; message: string }>("/api/demo/reset", { method: "POST" }),

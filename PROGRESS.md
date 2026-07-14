@@ -50,7 +50,24 @@ Screens 01–04 built pixel-faithful and fully data-bound + the §9.7 entity dra
 - Tracker default order preserves pinned DHA/RTA/DM… (seed order); avg completeness 73 (≈72%).
 
 ## Phase 2 — Entity portal, read-only
-Status: not started
+Status: **COMPLETE ✓** (gate passed)
+
+Screens 06–10 + My Submissions built in the Entity shell (chrome correction §1), data-bound to the persona entity; DHA renders EmptyStates for its unseeded packages.
+
+### Backend endpoints added
+`/entity/{id}/home`, `/org-structure` (tree + filtered sections), `/workforce` (server-side filters + pagination over 1,248 rows), `/workload`, `/drivers`, `/my-submissions`. Seed refined: DM org 6 sectors / 27 departments / 142 sections / 7 unmapped / 3 missing owner / 2 missing focal; workforce vacancies sum 61; driver-screen aggregate stats; DM package progress retuned to [100,72,45,63,60] (mean 68) to match the Home mockup's Org/Workforce/Workload exactly.
+
+### Gate checklist
+- [x] Visual match vs PNGs (see docs/progress/phase-2/)
+- [x] Home buttons route (Continue/Start/View → correct package screens)
+- [x] Workforce table paginates 1,248 rows server-side (filters + rows-per-page)
+- [x] Sparklines match peak labels (Steady flat, seasonal humps)
+- [x] No dead links (all actions toast "wired in Phase 3/4" or navigate)
+- [x] Org-tree root = current entity (not "DGHR"); DHA persona → DHA-scoped data + EmptyStates
+- [x] grep-clean (no metric literals in pages/); tsc strict clean; checks 21/21
+
+### Note (CONFLICTS C1)
+DM Home shows Future Demand Drivers 63% / Evidence 60% "In Progress" rather than the mockup's two "Not Started 0%" rows — the internal-consistency tradeoff (package mean must be 68). Org/Workforce/Workload match the mockup (100/72/45).
 
 ## Phase 3 — The closed loop
 Status: not started

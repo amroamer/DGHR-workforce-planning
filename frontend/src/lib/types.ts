@@ -223,6 +223,152 @@ export interface QualityPayload {
   top_gaps: { label: string; count: number }[];
 }
 
+// ─────────────── Entity portal (screens 06–10, 10.7) ───────────────
+export interface EntityHome {
+  entity: { name: string; code: string };
+  kpis: {
+    submission_progress: number;
+    required_packages: number;
+    pending_clarifications: number;
+    days_to_deadline: number;
+    deadline_date: string | null;
+    ready_for_review: number;
+  };
+  required_submissions: {
+    position: number;
+    key: string;
+    name: string;
+    description: string;
+    route: string;
+    status: PackageStatus;
+    status_label: string;
+    progress: number;
+    action: "View" | "Continue" | "Start";
+  }[];
+  messages: {
+    id: number;
+    kind: string;
+    title: string;
+    body: string;
+    created_at: string | null;
+    read: boolean;
+  }[];
+  deadlines: { label: string; date: string; days_left: number }[];
+}
+
+export interface OrgSectionRow {
+  id: number;
+  sector: string;
+  department: string;
+  name: string;
+  owner_name: string | null;
+  owner_initials: string | null;
+  hr_focal_point: string | null;
+  in_scope: boolean;
+  employee_count: number | null;
+  status: "mapped" | "unmapped" | "partial" | "not_in_scope";
+}
+export interface OrgStructure {
+  entity: { name: string; code: string };
+  kpis: { sectors: number; departments: number; sections: number; unmapped: number; completeness: number };
+  tree: {
+    name: string;
+    status: string;
+    departments: { name: string; status: string; sections: { id: number; name: string; status: string }[] }[];
+  }[];
+  sections: { columns: string[]; rows: OrgSectionRow[]; page: number; page_size: number; total: number };
+  sectors: string[];
+  departments: string[];
+  rules: string[];
+  alerts: { label: string; count: number }[];
+  comments: { author_name: string; author_role: string; body: string; created_at: string | null }[];
+}
+
+export interface WorkforceRecordRow {
+  id: number;
+  section: string;
+  job_title: string;
+  job_family: string | null;
+  grade: number | null;
+  current_fte: number;
+  vacancies: number;
+  employment_type: string | null;
+  critical_role: boolean;
+  map_status: "mapped" | "partial" | "unmapped";
+}
+export interface WorkforcePayload {
+  entity: { name: string; code: string };
+  kpis: {
+    imported_records: number;
+    mapped_titles: { count: number; pct: number };
+    open_issues: number;
+    vacancies: { count: number; pct: number };
+    completeness: number;
+  };
+  mapping_summary: { key: string; label: string; count: number; pct: number }[];
+  validation_summary: { label: string; count: number }[];
+  records: { rows: WorkforceRecordRow[]; page: number; page_size: number; total: number };
+  sections: string[];
+  upload: { filename: string; uploaded_at: string | null; uploaded_by: string };
+}
+
+export interface WorkloadPayload {
+  entity: { name: string; code: string };
+  kpis: {
+    sections_covered: { value: number; total: number };
+    workload_metrics: number;
+    missing_drivers: number;
+    avg_completeness: number;
+  };
+  rows: {
+    id: number;
+    name: string;
+    metrics_count: number;
+    service_type: string;
+    key_metric: string;
+    current_volume: number | null;
+    unit: string;
+    trend: { pct: number; delta: number };
+    monthly_pattern: number[];
+    peak_label: string;
+    complexity: string;
+    source_system: string;
+    status: string;
+  }[];
+  coverage: { average: number; items: { name: string; value: number }[] };
+}
+
+export interface DriversPayload {
+  entity: { name: string; code: string };
+  kpis: {
+    strategic_initiatives: number;
+    automation_impacts: number;
+    policy_changes: number;
+    evidence_documents: number;
+    outstanding_gaps: number;
+    evidence_coverage: number;
+  };
+  drivers: { id: number; category: string; description: string; impact: string; horizon: string; status: string }[];
+  evidence: { id: number; filename: string; source_org: string; linked_label: string; quality: string; uploaded_at: string | null }[];
+  evidence_total: number;
+  comments: { author_name: string; author_role: string; body: string; related_label: string | null }[];
+}
+
+export interface MySubmissions {
+  entity: { name: string; code: string };
+  rows: {
+    key: string;
+    name: string;
+    status: PackageStatus;
+    status_label: string;
+    progress: number;
+    updated_at: string | null;
+    comments: number;
+    route: string;
+    action: string;
+  }[];
+}
+
 // ─────────────── Entity detail drawer (§9.7) ───────────────
 export interface EntityDetail {
   id: number;

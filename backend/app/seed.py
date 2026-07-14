@@ -57,7 +57,9 @@ PINNED = [
     # name, code, wave, packages[5], overall, reviewer, status, overdue, quality
     ("Dubai Health Authority", "DHA", "W1", [100, 85, 80, 75, 90], 86, "M. Al Blooshi", "in_progress", True, 74),
     ("Roads & Transport Authority", "RTA", "W1", [100, 100, 95, 90, 100], 97, "H. Al Qasimi", "submitted", False, 76),
-    ("Dubai Municipality", "DM", "W1", [100, 85, 55, 40, 60], 68, "F. Al Marri", "returned", False, 82),
+    # DM packages tuned to mean 68 while matching the Home mockup's visible Org/Workforce/Workload
+    # (100/72/45); Future/Evidence non-zero to keep the mean consistent (see CONFLICTS C1).
+    ("Dubai Municipality", "DM", "W1", [100, 72, 45, 63, 60], 68, "F. Al Marri", "returned", False, 82),
     ("Dubai Police", "DP", "W1", [100, 100, 100, 100, 100], 100, "M. Al Blooshi", "submitted", False, 90),
     ("Dubai Electricity & Water Authority", "DEWA", "W2", [90, 80, 70, 50, 80], 74, "H. Al Qasimi", "in_progress", False, 94),
     ("Knowledge & Human Dev. Authority", "KHDA", "W2", [100, 90, 70, 60, 80], 78, "F. Al Marri", "in_progress", False, 79),
@@ -379,8 +381,22 @@ DM_SECTORS = [
 ]
 
 
+# 27 departments across the 6 sectors (screen 07: 6 sectors · 27 departments · 142 sections)
+DM_DEPARTMENTS = {
+    "Government Enablement Sector": ["People Enablement Department", "HR Policy & Governance Department", "Shared Services Department", "Organizational Development Department", "Talent Management Department"],
+    "Government Support Sector": ["Finance Department", "Procurement Department", "Administration Department", "Facilities Department"],
+    "Digital Government Sector": ["Digital Platforms Department", "Data & Analytics Department", "Cybersecurity Department", "Applications Department"],
+    "Smart City & Future Sector": ["Innovation Department", "Smart Services Department", "Future Planning Department", "Sustainability Department"],
+    "Regulation & Compliance Sector": ["Regulation Department", "Compliance Department", "Inspection Department", "Legal Department", "Enforcement Department"],
+    "Corporate Services Sector": ["Corporate Communications Department", "Strategy Department", "Governance Department", "Internal Audit Department", "Support Department"],
+}
+OWNER_NAMES = ["Aisha Al Hashmi", "Maryam Al Zaabi", "Salem Al Kaabi", "Laila Al Shamsi", "Noora Al Nuaimi",
+               "Khalid Al Hebsi", "Rania Al Falasi", "Huda Al Mansoori", "Omar Al Marri", "Saeed Al Ketbi"]
+HR_FOCALS = ["Omar Al Marri", "Fatima Al Blooshi", "Yousuf Al Mazrouei", "Hassan Al Suwaidi", "Saeed Al Ketbi", "Mohammed Al Rassi"]
+
+
 def seed_dm_org(db: Session, dm: m.Entity) -> None:
-    # Pinned visible rows (screen 07)
+    # Pinned visible rows (screen 07 — verbatim; root shown as the entity, not "DGHR")
     pinned_rows = [
         ("Government Enablement Sector", "People Enablement Department", "Workforce Planning Section", "Aisha Al Hashmi", "AA", "Omar Al Marri", True, 38, "mapped"),
         ("Government Enablement Sector", "People Enablement Department", "Learning & Development Section", "Maryam Al Zaabi", "MA", "Fatima Al Blooshi", True, 42, "mapped"),
@@ -395,25 +411,35 @@ def seed_dm_org(db: Session, dm: m.Entity) -> None:
         db.add(m.OrgSection(entity_id=dm.id, sector=sector, department=dept, name=sec,
                             owner_name=owner, owner_initials=oinit, hr_focal_point=hr,
                             in_scope=inscope, employee_count=emp, status=status))
-    # Generate remaining up to 142 sections deterministically
-    depts_per_sector = ["Operations Department", "Policy Department", "Support Department", "Field Department", "Planning Department"]
-    remaining = 142 - len(pinned_rows)
-    unmapped_left = 7 - 1  # 1 pinned unmapped
+
+    # Flatten (sector, department) pairs and round-robin the remaining 134 sections across them.
+    dept_pairs = [(s, d) for s, depts in DM_DEPARTMENTS.items() for d in depts]  # 27 pairs
+    remaining = 142 - len(pinned_rows)  # 134
+    unmapped_left = 7 - 1               # 6 more unmapped (1 pinned)
+    missing_owner_left = 3             # 3 sections missing Section Owner
+    missing_focal_left = 2            # 2 sections missing HR Focal Point
     for i in range(remaining):
-        sector = DM_SECTORS[i % len(DM_SECTORS)]
-        dept = depts_per_sector[i % len(depts_per_sector)]
+        sector, dept = dept_pairs[i % len(dept_pairs)]
         status = "mapped"
-        inscope = True
-        if unmapped_left > 0 and i % 20 == 0:
+        if unmapped_left > 0 and i % 19 == 0:
             status = "unmapped"
             unmapped_left -= 1
-        elif i % 17 == 0:
+        elif i % 23 == 0:
             status = "partial"
+        owner = OWNER_NAMES[i % len(OWNER_NAMES)]
+        oinit = "".join(w[0] for w in owner.split()[:2])
+        focal = HR_FOCALS[i % len(HR_FOCALS)]
+        if missing_owner_left > 0 and i % 37 == 5:
+            owner, oinit = None, None
+            missing_owner_left -= 1
+        if missing_focal_left > 0 and i % 41 == 7:
+            focal = None
+            missing_focal_left -= 1
         db.add(m.OrgSection(
-            entity_id=dm.id, sector=sector, department=dept, name=f"{dept.split()[0]} Section {i+1}",
-            owner_name=(None if status == "unmapped" and i % 3 == 0 else "Section Owner"),
-            owner_initials="SO", hr_focal_point=("HR Focal" if i % 25 else None),
-            in_scope=inscope, employee_count=(None if status == "unmapped" else 8 + (i % 40)),
+            entity_id=dm.id, sector=sector, department=dept,
+            name=f"{dept.replace(' Department', '')} Section {i + 1}",
+            owner_name=owner, owner_initials=oinit, hr_focal_point=focal,
+            in_scope=True, employee_count=(None if status == "unmapped" else 8 + (i % 46)),
             status=status,
         ))
     db.flush()
@@ -468,9 +494,12 @@ def seed_dm_workforce(db: Session, dm: m.Entity) -> None:
         if "negative_zero_fte" in issues:
             fte = 0.0
         job_family = None if mstatus == "unmapped" else (fam if mstatus == "mapped" else None)
+        # Vacancies sum to 61 total (screen 08: "61 · 4.9% of total positions"): 56 of the
+        # generated records carry one vacancy; the 7 pinned rows contribute 5 → 61.
+        vac = 1.0 if i < 56 else 0.0
         db.add(m.WorkforceRecord(
             entity_id=dm.id, section=sec, job_title=title, job_family=job_family,
-            grade=grade, current_fte=fte, vacancies=float(i % 3), employment_type=emp,
+            grade=grade, current_fte=fte, vacancies=vac, employment_type=emp,
             critical_role=(i % 7 == 0), map_status=mstatus, issues=issues,
         ))
     db.flush()
@@ -828,6 +857,12 @@ def seed_dashboard_stats(db: Session) -> None:
         ("evidence_gaps", "role_justification", "Role Justification Documents", 86, None, {}, 0),
         ("evidence_gaps", "workload_methodology", "Workload Methodology", 62, None, {}, 1),
         ("evidence_gaps", "org_charts", "Organizational Charts", 38, None, {}, 2),
+        # entity: future demand drivers KPIs (screen 10) — not derivable from the 7 driver rows
+        ("drivers", "strategic_initiatives", "Strategic Initiatives", 14, None, {}, 0),
+        ("drivers", "automation_impacts", "Automation Impacts", 9, None, {}, 1),
+        ("drivers", "policy_changes", "Policy Changes", 7, None, {}, 2),
+        ("drivers", "outstanding_gaps", "Outstanding Evidence Gaps", 6, None, {}, 3),
+        ("drivers", "evidence_coverage", "Evidence Coverage", 72, None, {}, 4),
         # command center: missing data summary (screen 01)
         ("missing_summary", "org_structure", "Org Structure", 18, None, {}, 0),
         ("missing_summary", "workforce_baseline", "Workforce Baseline", 22, None, {}, 1),
