@@ -1,0 +1,31 @@
+[project]
+name = "dghr-portal-backend"
+version = "0.1.0"
+description = "DGHR Workforce Planning Portal — backend"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "psycopg[binary]>=3.2",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.5",
+    "python-multipart>=0.0.12",
+    "pandas>=2.2",
+    "openpyxl>=3.1",
+    "rapidfuzz>=3.10",
+    "reportlab>=4.2",
+    "anthropic>=0.39",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501", "B008"]
+
+[tool.black]
+line-length = 100

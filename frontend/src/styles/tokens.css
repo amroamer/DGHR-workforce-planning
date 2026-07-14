@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens (SPEC §4.1) — canonical CSS custom properties. */
+:root {
+  --navy-900: #0b1b3b;
+  --navy-800: #13284f;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --page-bg: #f5f7fa;
+  --card-bg: #ffffff;
+  --border: #e6eaf2;
+  --text-1: #0f172a;
+  --text-2: #475569;
+  --text-3: #94a3b8;
+  --success: #16a34a;
+  --success-bg: #e8f7ee;
+  --warning: #ea8a00;
+  --warning-bg: #fef3e2;
+  --danger: #e11d48;
+  --danger-bg: #fdebec;
+  --info: #0ea5e9;
+  --info-bg: #e7f6fe;
+  --purple: #7c3aed;
+  --purple-bg: #f1eafe;
+  --teal: #0d9488;
+  --teal-bg: #e6f7f4;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--page-bg);
+  color: var(--text-1);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin scrollbars for the app shell */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
