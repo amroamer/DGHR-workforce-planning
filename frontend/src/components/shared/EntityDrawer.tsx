@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Send, CornerUpLeft, CheckCircle2, MessageSquarePlus } from "lucide-react";
 import { api } from "@/lib/api";
 import { relativeTime } from "@/lib/utils";
@@ -8,22 +9,31 @@ import { StatusBadge } from "./StatusBadge";
 import { ProgressBar } from "./ProgressBar";
 
 // Shared entity detail drawer (SPEC §9.7). Opened from Command Center & Tracker.
+// Governance actions are live (§11) — they mutate and the other portal updates within ≤5s.
 export function EntityDrawer({
   entityId,
   onClose,
-  onAction,
 }: {
   entityId: number | null;
   onClose: () => void;
-  onAction?: (action: string, entityId: number) => void;
 }) {
+  const qc = useQueryClient();
   const { data } = useQuery({
     queryKey: ["entity-detail", entityId],
     queryFn: () => api.entityDetail(entityId!),
     enabled: entityId != null,
   });
 
-  const act = (a: string) => entityId != null && onAction?.(a, entityId);
+  const act = async (a: string) => {
+    if (entityId == null || !data) return;
+    try {
+      if (a === "remind") { await api.remind([entityId]); toast.success(`Reminder sent to ${data.name}.`); }
+      else if (a === "return") { const r = await api.returnSubmission({ entity_id: entityId }); toast.success(`Submission returned (${r.ref}).`); }
+      else if (a === "approve") { await api.approve({ entity_ids: [entityId] }); toast.success(`${data.name} approved.`); }
+      else if (a === "clarify") { const r = await api.createCase({ entity_id: entityId, issue_summary: "Please review and clarify your submitted data." }); toast.warning(`Clarification ${r.ref} raised.`); }
+      qc.invalidateQueries();
+    } catch { toast.error("Action failed."); }
+  };
 
   return (
     <Drawer open={entityId != null} onClose={onClose} title={data ? `${data.name}` : "Entity"} width={460}>
@@ -133,7 +143,6 @@ export function EntityDrawer({
               <CheckCircle2 size={14} /> Approve
             </Button>
           </div>
-          <p className="text-[11px] text-text3">Governance actions become live in Phase 3.</p>
         </div>
       )}
     </Drawer>

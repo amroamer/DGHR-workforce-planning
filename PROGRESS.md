@@ -70,7 +70,24 @@ Screens 06–10 + My Submissions built in the Entity shell (chrome correction §
 DM Home shows Future Demand Drivers 63% / Evidence 60% "In Progress" rather than the mockup's two "Not Started 0%" rows — the internal-consistency tradeoff (package mean must be 68). Org/Workforce/Workload match the mockup (100/72/45).
 
 ## Phase 3 — The closed loop
-Status: not started
+Status: **COMPLETE ✓** (gate passed)
+
+Both Clarifications screens (§9.6 DGHR, §10.6 Entity) built as a shared three-pane view; all mutating actions live; cross-portal sync via 4s polling.
+
+### Backend
+`services/cases.py` (roll-up state machine, list/detail/kpis, create/message/action, submit/save-draft, remind/approve/bulk-review/return, resubmit/acknowledge). `routers/cases.py` + DGHR `/actions/*` + entity `/packages/{key}/submit`. Every mutation → state change + `audit_events` + notification to opposite audience + last-updated bump (`services/workflow.py`). Clarification KPIs tuned: 24 open · 16 returned · 1.6-day avg response · 5 overdue · 128 resolved.
+
+### Frontend
+`useLiveNotifications` hook (mounted in AppShell) polls `/notifications/poll` every 4s, diffs new events → sonner toasts + `invalidateQueries()`. Shared `ClarificationsView` (both portals). Wired live: entity package submits (Org/Workforce/Workload/Drivers), Command Center Approve-Ready / Send-Reminders, Tracker Send-Reminder / Bulk-Review, EntityDrawer remind/return/approve/clarify, Data Quality anomaly → Open Clarification, config Publish, all case actions (reply, return, request-evidence, accept-resubmission, escalate, acknowledge, resubmit).
+
+### Gate checklist (verified via API/poll + curl loop)
+- [x] §11 matrix rows propagate: entity submit → DGHR notif; DGHR clarification → entity notif + badge 3→4 (both directions ≤4s)
+- [x] CLF-2025-00421 round-trips: reply → responded → accept → resolved (4 msgs, 5 audit events)
+- [x] "Approve Ready Entities" advances donut (approved 8→19) & readiness (11→0)
+- [x] Audit trail records every step; refresh timestamp updates
+- [x] No dead links; tsc strict clean; checks 21/21
+
+Evidence: docs/progress/phase-3/
 
 ## Phase 4 — Import engine + AI + demo assets
 Status: not started

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   BarChart3, FileCheck2, AlertTriangle, ShieldCheck, RefreshCw, Plus, Upload,
@@ -31,6 +31,8 @@ function Trend({ pct }: { pct: number }) {
 
 export function Workload() {
   const { entityId } = useAudience();
+  const qc = useQueryClient();
+  const submit = async () => { if (entityId == null) return; await api.submitPackage(entityId, "workload_service"); qc.invalidateQueries(); toast.success("Workload & Service Data submitted to DGHR."); };
   const { data } = useQuery({ queryKey: ["workload", entityId], queryFn: () => api.workload(entityId!), enabled: entityId != null });
   const k = data?.kpis;
   const empty = (data?.rows.length ?? 0) === 0;
@@ -114,7 +116,7 @@ export function Workload() {
 
         <div className="mt-4 flex items-center gap-3">
           <Button variant="secondary" onClick={() => toast.success("Draft saved.")}><Save size={16} /> Save Draft</Button>
-          <Button className="ml-auto" onClick={() => toast.message("Submit is wired in Phase 3.")}><Send size={16} /> Submit Workload Data</Button>
+          <Button className="ml-auto" onClick={submit}><Send size={16} /> Submit Workload Data</Button>
         </div>
       </PageBody>
     </>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Database, FileCheck2, AlertTriangle, UserMinus, ShieldCheck, UploadCloud, Link2,
@@ -21,8 +21,15 @@ const MAP_TONE: Record<string, string> = { mapped: "#16A34A", partial: "#EA8A00"
 
 export function Workforce() {
   const { entityId } = useAudience();
+  const qc = useQueryClient();
   const [filters, setFilters] = useState<WorkforceFilters>({ page: 1, page_size: 25 });
   const set = (p: Partial<WorkforceFilters>) => setFilters((f) => ({ ...f, ...p, page: p.page ?? 1 }));
+  const submit = async () => {
+    if (entityId == null) return;
+    await api.submitPackage(entityId, "current_workforce");
+    qc.invalidateQueries();
+    toast.success("Current Workforce Data submitted to DGHR.");
+  };
   const { data } = useQuery({
     queryKey: ["workforce", entityId, filters],
     queryFn: () => api.workforce(entityId!, filters),
@@ -146,7 +153,7 @@ export function Workforce() {
           <span className="flex items-center gap-1.5 text-sm text-text3"><CheckCircle2 size={14} className="text-success" /> Draft saved</span>
           <Button variant="secondary" className="ml-auto" onClick={() => toast.success("Draft saved.")}><Save size={16} /> Save Draft</Button>
           <Button variant="secondary" onClick={() => toast.success("Workforce data exported.")}><Download size={16} /> Export Data</Button>
-          <Button onClick={() => toast.message("Submit is wired in Phase 3.")}><Send size={16} /> Submit Workforce Data</Button>
+          <Button onClick={submit}><Send size={16} /> Submit Workforce Data</Button>
         </div>
         </>
         )}

@@ -300,8 +300,8 @@ def build_quality(db: Session, *, page=1, page_size=8) -> dict:
                        for r in rule_stats] + [{"category": "Total", "passed": passed, "failed": failed, "pass_rate": pass_rate}],
         "anomalies": [{
             "id": a.id, "title": a.title, "entity": entities[a.entity_id].name if a.entity_id in entities else "",
-            "package_key": a.package_key, "severity": a.severity, "confidence": a.confidence,
-            "has_narrative": a.narrative is not None,
+            "entity_id": a.entity_id, "package_key": a.package_key, "severity": a.severity,
+            "confidence": a.confidence, "has_narrative": a.narrative is not None,
         } for a in anomalies],
         "evidence_overview": [{"key": s.key, "label": s.label, "count": s.value_int,
                                "entities": s.meta.get("entities"), "pct": s.meta.get("pct")} for s in evidence],

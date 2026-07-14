@@ -1,5 +1,6 @@
-// DGHR portal screens. Phase 1 wires screens 01–04 to the backend; Phase 3/5 fill the rest.
+// DGHR portal screens. Phases 1 & 3 wired; Forecasting Readiness lands in Phase 5.
 import { TodoScreen } from "@/components/shared/TodoScreen";
+import { ClarificationsView } from "@/components/shared/ClarificationsView";
 
 export { CommandCenter } from "./CommandCenter";
 export { DataCollection } from "./DataCollection";
@@ -7,10 +8,10 @@ export { Submissions } from "./Submissions";
 export { DataQuality } from "./DataQuality";
 
 export const Clarifications = () => (
-  <TodoScreen
+  <ClarificationsView
+    side="dghr"
     title="DGHR Clarifications & Resubmissions"
     subtitle="Manage clarification requests, returned items, and resubmissions from entities."
-    phase="Phase 3"
   />
 );
 

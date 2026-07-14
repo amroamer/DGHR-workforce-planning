@@ -2,6 +2,9 @@
 
 import type {
   BlockedSummary,
+  CaseDetail,
+  CasesList,
+  ClarificationsKpis,
   CommandCenterPayload,
   ConfigPayload,
   DriversPayload,
@@ -157,6 +160,34 @@ export const api = {
   workload: (id: number) => request<WorkloadPayload>(`/api/entity/${id}/workload`),
   drivers: (id: number) => request<DriversPayload>(`/api/entity/${id}/drivers`),
   mySubmissions: (id: number) => request<MySubmissions>(`/api/entity/${id}/my-submissions`),
+
+  // ── Cases / Clarifications (Phase 3) ──
+  cases: (params: { side?: string; entity_id?: number; tab?: string; search?: string } = {}) => {
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== "") q.set(k, String(v)); });
+    return request<CasesList>(`/api/cases?${q.toString()}`);
+  },
+  caseDetail: (id: number) => request<CaseDetail>(`/api/cases/${id}`),
+  clarificationsKpis: (entityId?: number) =>
+    request<ClarificationsKpis>(`/api/cases/kpis${entityId != null ? `?entity_id=${entityId}` : ""}`),
+  createCase: (body: { entity_id: number; issue_summary: string; package_label?: string; corrections?: string[]; priority?: string; category?: string }) =>
+    request<{ ok: boolean; ref: string; id: number }>("/api/cases", { method: "POST", body: JSON.stringify(body) }),
+  caseMessage: (id: number, side: "dghr" | "entity", body: string) =>
+    request<CaseDetail>(`/api/cases/${id}/messages`, { method: "POST", body: JSON.stringify({ side, body }) }),
+  caseAction: (id: number, action: string, reviewer_id?: number) =>
+    request<CaseDetail>(`/api/cases/${id}/action`, { method: "POST", body: JSON.stringify({ action, reviewer_id }) }),
+
+  // ── Workflow actions (Phase 3) ──
+  submitPackage: (entityId: number, key: string) =>
+    request<{ ok: boolean; package: string; entity_status: string }>(`/api/entity/${entityId}/packages/${key}/submit`, { method: "POST" }),
+  remind: (entity_ids: number[]) =>
+    request<{ ok: boolean; reminded: number }>("/api/dghr/actions/remind", { method: "POST", body: JSON.stringify({ entity_ids }) }),
+  approve: (body: { entity_ids?: number[]; ready?: boolean }) =>
+    request<{ ok: boolean; approved: number }>("/api/dghr/actions/approve", { method: "POST", body: JSON.stringify(body) }),
+  bulkReview: (entity_ids: number[]) =>
+    request<{ ok: boolean; reviewed: number }>("/api/dghr/actions/bulk-review", { method: "POST", body: JSON.stringify({ entity_ids }) }),
+  returnSubmission: (body: { entity_id: number; package_key?: string; reason?: string }) =>
+    request<{ ok: boolean; ref: string }>("/api/dghr/actions/return", { method: "POST", body: JSON.stringify(body) }),
 
   resetDemo: () =>
     request<{ ok: boolean; message: string }>("/api/demo/reset", { method: "POST" }),

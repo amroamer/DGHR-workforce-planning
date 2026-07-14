@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Rocket, Cog, FileText, FolderOpen, AlertTriangle, ShieldCheck, Download, Save, Send,
@@ -26,6 +26,8 @@ const IMPACTS = ["High", "Medium", "Low"];
 
 export function DemandDrivers() {
   const { entityId } = useAudience();
+  const qc = useQueryClient();
+  const submit = async () => { if (entityId == null) return; await api.submitPackage(entityId, "future_drivers"); qc.invalidateQueries(); toast.success("Future Demand Drivers package submitted to DGHR."); };
   const [leftTab, setLeftTab] = useState<"drivers" | "map">("drivers");
   const [rightTab, setRightTab] = useState<"evidence" | "ai" | "linked">("evidence");
   const [aiSummary, setAiSummary] = useState<string | null>(null);
@@ -43,7 +45,7 @@ export function DemandDrivers() {
           <>
             <Button variant="secondary" size="sm" onClick={() => toast.success("Exported.")}><Download size={15} /> Export</Button>
             <Button variant="secondary" size="sm" onClick={() => toast.success("Draft saved.")}><Save size={15} /> Save Draft</Button>
-            <Button size="sm" onClick={() => toast.message("Submit is wired in Phase 3.")}><Send size={15} /> Submit Package</Button>
+            <Button size="sm" onClick={submit}><Send size={15} /> Submit Package</Button>
           </>
         } />
       <PageBody>
@@ -188,7 +190,7 @@ export function DemandDrivers() {
           <ShieldCheck size={16} className="text-info" />
           Ensure all high-impact drivers have supporting evidence and are linked to relevant forecast sections before submission.
           <Button variant="secondary" size="sm" className="ml-auto" onClick={() => toast.message("Available in the full release")}><Link2 size={14} /> Link to Sections</Button>
-          <Button size="sm" onClick={() => toast.message("Submit is wired in Phase 3.")}><Send size={14} /> Submit Package</Button>
+          <Button size="sm" onClick={submit}><Send size={14} /> Submit Package</Button>
         </div>
       </PageBody>
     </>

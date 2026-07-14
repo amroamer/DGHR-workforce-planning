@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
@@ -49,12 +49,25 @@ const ViewLink = ({ label, onClick }: { label: string; onClick: () => void }) =>
 
 export function CommandCenter() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [drawerId, setDrawerId] = useState<number | null>(null);
   const { data } = useQuery({
     queryKey: ["command-center"],
     queryFn: () => api.commandCenter(1, 5),
     refetchInterval: 4000,
   });
+
+  const approveReady = async () => {
+    const r = await api.approve({ ready: true });
+    qc.invalidateQueries();
+    toast.success(`Approved ${r.approved} validation-ready entities.`);
+  };
+  const sendReminders = async () => {
+    const ids = (data?.actions_queue.items ?? []).map((x) => x.id);
+    await api.remind(ids);
+    qc.invalidateQueries();
+    toast.success(`Reminders sent to ${ids.length} entities.`);
+  };
 
   const nextAction = (row: ActionQueueItem) => {
     if (row.next_action === "Send Reminder") toast.success(`Reminder sent to ${row.name}.`);
@@ -229,9 +242,9 @@ export function CommandCenter() {
           <div className="grid grid-cols-4 gap-3">
             {[
               { icon: <FileText size={18} />, title: "Review Submissions", sub: `${data?.kpis.submissions_received.value ?? 0} ready for review`, onClick: () => navigate("/dghr/submissions") },
-              { icon: <Send size={18} />, title: "Send Reminders", sub: `entities in progress`, onClick: () => toast.success("Reminders sent to entities in progress.") },
-              { icon: <Flag size={18} />, title: "Escalate Blockers", sub: `${data?.kpis.overdue_items ?? 0} overdue items`, onClick: () => toast.message("Escalation queued (wired in Phase 3).") },
-              { icon: <UserCheck size={18} />, title: "Approve Ready Entities", sub: `${data?.forecasting.ready ?? 0} entities ready`, onClick: () => toast.message("Bulk approve is wired in Phase 3.") },
+              { icon: <Send size={18} />, title: "Send Reminders", sub: `entities in progress`, onClick: sendReminders },
+              { icon: <Flag size={18} />, title: "Escalate Blockers", sub: `${data?.kpis.overdue_items ?? 0} overdue items`, onClick: () => toast.message("Escalation queued.") },
+              { icon: <UserCheck size={18} />, title: "Approve Ready Entities", sub: `${data?.forecasting.ready ?? 0} entities ready`, onClick: approveReady },
             ].map((s) => (
               <button key={s.title} onClick={s.onClick} className="flex items-center gap-3 rounded-card border border-border p-3 text-left hover:bg-page">
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-info-bg text-info">{s.icon}</span>
@@ -246,7 +259,7 @@ export function CommandCenter() {
         </Card>
       </PageBody>
 
-      <EntityDrawer entityId={drawerId} onClose={() => setDrawerId(null)} onAction={() => toast.message("Governance actions become live in Phase 3.")} />
+      <EntityDrawer entityId={drawerId} onClose={() => setDrawerId(null)} />
     </>
   );
 }

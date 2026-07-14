@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Building, Network, Boxes, AlertTriangle, ShieldCheck, ChevronRight, ChevronDown,
@@ -21,6 +21,8 @@ const Dot = ({ s }: { s: string }) => <span className="h-2.5 w-2.5 shrink-0 roun
 
 export function OrgStructure() {
   const { entityId } = useAudience();
+  const qc = useQueryClient();
+  const submit = async () => { if (entityId == null) return; await api.submitPackage(entityId, "org_structure"); qc.invalidateQueries(); toast.success("Organization Structure submitted for review."); };
   const [filters, setFilters] = useState<{ sector?: string; department?: string; status?: string; search?: string; page: number }>({ page: 1 });
   const [openSectors, setOpenSectors] = useState<Set<string>>(new Set());
   const set = (p: Partial<typeof filters>) => setFilters((f) => ({ ...f, ...p, page: p.page ?? 1 }));
@@ -164,7 +166,7 @@ export function OrgStructure() {
         <div className="mt-4 flex items-center gap-3">
           <Button variant="secondary" onClick={() => toast.success("Draft saved.")}><Save size={16} /> Save as Draft</Button>
           <Button variant="secondary" onClick={() => toast.success("Structure validated — statuses recomputed.")} className="ml-auto"><ShieldCheck size={16} /> Validate Structure</Button>
-          <Button onClick={() => toast.message("Submit is wired in Phase 3.")}><Send size={16} /> Submit for Review</Button>
+          <Button onClick={submit}><Send size={16} /> Submit for Review</Button>
         </div>
       </PageBody>
     </>

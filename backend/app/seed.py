@@ -672,10 +672,11 @@ def seed_cases(db: Session, entities: dict[str, m.Entity], users: dict[str, m.Us
     )
     db.add(c421)
     db.flush()
+    # entity reply 1.6 days after the DGHR message → "Avg. Response Time 1.6 days"
     msgs = [
-        ("dghr", aisha.id, "Please clarify FTE calculation for part-time roles in clinical departments. Refer to DGHR Workforce Data Standard v2.1, Section 4.3.", 4),
-        ("entity", fatima.id, "We use 37.5 hours/week as standard. Part-time hours are converted proportionally. Reference attached policy document.", 3),
-        ("dghr", aisha.id, "Thank you. Please also confirm if any roles are excluded from FTE conversion (e.g., contractors, interns).", 2),
+        ("dghr", aisha.id, "Please clarify FTE calculation for part-time roles in clinical departments. Refer to DGHR Workforce Data Standard v2.1, Section 4.3.", 4.0),
+        ("entity", fatima.id, "We use 37.5 hours/week as standard. Part-time hours are converted proportionally. Reference attached policy document.", 2.4),
+        ("dghr", aisha.id, "Thank you. Please also confirm if any roles are excluded from FTE conversion (e.g., contractors, interns).", 2.0),
     ]
     for side, author, body, days_ago in msgs:
         db.add(m.CaseMessage(case_id=c421.id, author_id=author, side=side, body=body,
@@ -734,10 +735,12 @@ def seed_cases(db: Session, entities: dict[str, m.Entity], users: dict[str, m.Us
     seq = 431
     for i in range(24 - open_clf):
         e = ent_pool[i % len(ent_pool)]
+        # First 5 fillers are past-due → "Overdue Responses 5" KPI (screen 05).
+        due = TODAY - timedelta(days=(i % 3) + 1) if i < 5 else TODAY + timedelta(days=(i % 7) + 1)
         db.add(m.Case(ref=f"CLF-2025-{seq:05d}", kind="clarification", entity_id=e.id,
                       package_label="Workforce Plan Q2 2025", priority=["High", "Medium", "Low"][i % 3],
                       category="Data Quality", status="open", assigned_to=aisha.id,
-                      due_date=TODAY + timedelta(days=(i % 7) + 1),
+                      due_date=due,
                       issue_summary="Please review and clarify submitted data.", corrections=[]))
         seq += 1
     # 16 open returns span exactly 8 distinct entities (tracker "Returned Entities" = 8;

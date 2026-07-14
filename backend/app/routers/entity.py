@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.services import cases as cases_svc
 from app.services import entity_views
 from app import models as m
 
@@ -71,3 +73,17 @@ def drivers(entity_id: int, db: Session = Depends(get_db)) -> dict:
 @router.get("/{entity_id}/my-submissions")
 def my_submissions(entity_id: int, db: Session = Depends(get_db)) -> dict:
     return entity_views.build_my_submissions(db, entity_id)
+
+
+class SaveDraft(BaseModel):
+    progress: int | None = None
+
+
+@router.post("/{entity_id}/packages/{key}/submit")
+def submit_package(entity_id: int, key: str, db: Session = Depends(get_db)) -> dict:
+    return cases_svc.submit_package(db, entity_id=entity_id, package_key=key)
+
+
+@router.post("/{entity_id}/packages/{key}/save-draft")
+def save_draft(entity_id: int, key: str, body: SaveDraft, db: Session = Depends(get_db)) -> dict:
+    return cases_svc.save_draft(db, entity_id=entity_id, package_key=key, progress=body.progress)

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
+from app.services import cases as cases_svc
 from app.services import dghr_views, kpi, workflow
 from app import models as m
 
@@ -136,3 +137,36 @@ def entity_detail(entity_id: int, db: Session = Depends(get_db)) -> dict:
     if detail is None:
         raise HTTPException(404, "Entity not found")
     return detail
+
+
+# ─────────────────────────── workflow actions (§11) ───────────────────────────
+class EntityIds(BaseModel):
+    entity_ids: list[int] = []
+    ready: bool = False
+
+
+@router.post("/actions/remind")
+def action_remind(body: EntityIds, db: Session = Depends(get_db)) -> dict:
+    return cases_svc.remind(db, body.entity_ids)
+
+
+@router.post("/actions/approve")
+def action_approve(body: EntityIds, db: Session = Depends(get_db)) -> dict:
+    return cases_svc.approve(db, entity_ids=body.entity_ids, ready=body.ready)
+
+
+@router.post("/actions/bulk-review")
+def action_bulk_review(body: EntityIds, db: Session = Depends(get_db)) -> dict:
+    return cases_svc.bulk_review(db, body.entity_ids)
+
+
+class ReturnBody(BaseModel):
+    entity_id: int
+    package_key: str = "current_workforce"
+    reason: str = "Returned for correction."
+
+
+@router.post("/actions/return")
+def action_return(body: ReturnBody, db: Session = Depends(get_db)) -> dict:
+    c = cases_svc.return_submission(db, entity_id=body.entity_id, package_key=body.package_key, reason=body.reason)
+    return {"ok": True, "ref": c.ref}

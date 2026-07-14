@@ -199,6 +199,7 @@ export interface QualityAnomaly {
   id: number;
   title: string;
   entity: string;
+  entity_id: number;
   package_key: string;
   severity: string;
   confidence: number;
@@ -367,6 +368,58 @@ export interface MySubmissions {
     route: string;
     action: string;
   }[];
+}
+
+// ─────────────── Cases / Clarifications (§9.6, §10.6) ───────────────
+export interface CaseSummary {
+  id: number;
+  ref: string;
+  kind: "clarification" | "return";
+  entity_id: number;
+  entity: string;
+  package_label: string;
+  priority: "High" | "Medium" | "Low";
+  category: string;
+  status: "open" | "responded" | "resolved";
+  issue_summary: string;
+  due_date: string | null;
+  returned_on: string | null;
+  resolved_on: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+}
+export interface CaseMessage {
+  id: number;
+  side: "dghr" | "entity";
+  author: string;
+  author_role: string;
+  body: string;
+  created_at: string | null;
+}
+export interface CaseDetail extends CaseSummary {
+  assigned_to: string | null;
+  corrections: string[];
+  sla_days: number | null;
+  messages: CaseMessage[];
+  audit: { label: string; actor_name: string; created_at: string | null }[];
+  evidence: { filename: string; quality: string; linked_label: string }[];
+  entity_name: string;
+}
+export interface CasesList {
+  counts: { all: number; open: number; returned: number; resolved: number };
+  groups: {
+    open_clarifications: CaseSummary[];
+    returned_submissions: CaseSummary[];
+    resolved: CaseSummary[];
+  };
+  all: CaseSummary[];
+}
+export interface ClarificationsKpis {
+  open_clarifications: number;
+  returned_submissions: number;
+  avg_response_time: number;
+  overdue_responses: number;
+  resolved_items: number;
 }
 
 // ─────────────── Entity detail drawer (§9.7) ───────────────

@@ -198,7 +198,11 @@ export function DataQuality() {
                 <Sparkles size={15} /> Generate AI Narrative
               </Button>
             )}
-            <Button className="w-full" onClick={() => toast.message("Opens a clarification (wired in Phase 3).")}>
+            <Button className="w-full" onClick={async () => {
+              const r = await api.createCase({ entity_id: anomaly.entity_id, issue_summary: anomaly.title, priority: anomaly.severity, category: "Data Quality" });
+              qc.invalidateQueries(); setAnomaly(null);
+              toast.warning(`Clarification ${r.ref} sent to ${anomaly.entity}.`);
+            }}>
               <Send size={15} /> Open Clarification
             </Button>
           </div>

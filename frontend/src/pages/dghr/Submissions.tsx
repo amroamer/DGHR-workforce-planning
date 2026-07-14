@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Building2, FileCheck2, CornerUpLeft, Clock, ShieldCheck,
@@ -41,11 +41,16 @@ const BLOCK_ICONS: Record<string, React.ReactNode> = {
 };
 
 export function Submissions() {
+  const qc = useQueryClient();
   const [filters, setFilters] = useState<TrackerFilters>({ page: 1, page_size: 10 });
   const [drawerId, setDrawerId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const set = (patch: Partial<TrackerFilters>) => setFilters((f) => ({ ...f, ...patch, page: patch.page ?? 1 }));
+
+  const targetIds = () => (selected.size ? [...selected] : (data?.rows.filter((r) => r.overdue).map((r) => r.id) ?? []));
+  const sendReminder = async () => { const ids = targetIds(); await api.remind(ids); qc.invalidateQueries(); toast.success(`Reminder sent to ${ids.length} entities.`); };
+  const bulkReview = async () => { const ids = [...selected]; if (!ids.length) return toast.message("Select entities to review."); await api.bulkReview(ids); qc.invalidateQueries(); setSelected(new Set()); toast.success(`${ids.length} moved to review.`); };
 
   const { data } = useQuery({
     queryKey: ["tracker", filters],
@@ -67,10 +72,10 @@ export function Submissions() {
         subtitle="Track the status and progress of all entity submissions across Dubai Government entities."
         actions={
           <>
-            <Button variant="secondary" size="sm" onClick={() => toast.success("Reminder sent to selected entities.")}>
+            <Button variant="secondary" size="sm" onClick={sendReminder}>
               <Send size={15} /> Send Reminder
             </Button>
-            <Button size="sm" onClick={() => toast.message("Bulk review is wired in Phase 3.")}>
+            <Button size="sm" onClick={bulkReview}>
               <ListChecks size={15} /> Bulk Review
             </Button>
             <a href={api.trackerCsvUrl()} download>
@@ -208,7 +213,7 @@ export function Submissions() {
         </div>
       </PageBody>
 
-      <EntityDrawer entityId={drawerId} onClose={() => setDrawerId(null)} onAction={() => toast.message("Governance actions become live in Phase 3.")} />
+      <EntityDrawer entityId={drawerId} onClose={() => setDrawerId(null)} />
     </>
   );
 }
