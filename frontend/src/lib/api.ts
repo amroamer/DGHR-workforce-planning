@@ -419,6 +419,17 @@ export const api = {
     request<{ draft: string; source: string }>("/api/ai/draft-clarification", {
       method: "POST", body: JSON.stringify(body),
     }),
+  // ── AI agents (multi-step) ──
+  aiPreReview: (subId: number) =>
+    request<Q.PreReviewPayload>(`/api/ai/pre-review/${subId}`, { method: "POST" }),
+  aiClarificationTriage: () =>
+    request<Q.TriagePayload>("/api/ai/clarification-triage", { method: "POST" }),
+  aiClarificationChase: (body: { clarification_id: number; action: "remind" | "escalate"; message?: string }) =>
+    request<{ ok: boolean; action: string; clarification_id: number }>("/api/ai/clarification-chase", {
+      method: "POST", body: JSON.stringify(body),
+    }),
+  aiQualitySweep: () =>
+    request<Q.QualitySweepPayload>("/api/ai/quality-sweep", { method: "POST" }),
 
   resetDemo: () =>
     request<{ ok: boolean; message: string }>("/api/demo/reset", { method: "POST" }),

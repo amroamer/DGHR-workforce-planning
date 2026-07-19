@@ -24,7 +24,8 @@ import { Acronym } from "@/components/shared/Acronym";
 import { Modal, Field, TextArea } from "@/components/shared/Modal";
 import { AdjustmentList, HcTiles, LevelBar, ProjectedGapChart, SupplyChain, StatCard, fmtFte } from "./widgets";
 import { TraceableValue } from "@/components/shared/TraceableValue";
-import { FAMILY_LABEL, type ReviewElement, type SubmissionPayload, type Clarification } from "@/lib/planning";
+import { FAMILY_LABEL, type ReviewElement, type SubmissionPayload, type Clarification,
+  type PreReviewElement, type PreReviewPayload } from "@/lib/planning";
 
 const REVIEW_STATUS_LABEL: Record<string, string> = {
   draft: "Draft", submitted: "Submitted", in_clarification: "In Clarification",
@@ -117,6 +118,130 @@ function ReviewBriefCard({ subId }: { subId: number }) {
               </ol>
             </div>
           )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** Agent #1 — the pre-review. Triages every element (approve/query), drafts the question for each
+ *  query, and proposes the overall move. Suggestions only: "Apply" writes each decision on the same
+ *  maker-checker path a human click uses (elements/decide + clarify), so nothing bypasses the audit. */
+function PreReviewCard({ subId, actor }: { subId: number; actor: number | null }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [plan, setPlan] = useState<PreReviewPayload | null>(null);
+  const [applied, setApplied] = useState<Set<string>>(new Set());
+  const keyOf = (e: PreReviewElement) => `${e.element_type}:${e.element_key}`;
+
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await api.aiPreReview(subId);
+      if (!r.elements.length) { toast.message("Nothing to pre-review yet."); return; }
+      setPlan(r); setApplied(new Set());
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Could not pre-review."); }
+    finally { setBusy(false); }
+  };
+
+  // The write — same endpoints the manual approve/query buttons call. A query both marks the element
+  // queried AND sends the drafted question to the entity, exactly like the human "Query & ask" flow.
+  const write = async (el: PreReviewElement) => {
+    if (el.verdict === "approve") {
+      await api.planning.decideElement(subId, { element_type: el.element_type, element_key: el.element_key, element_label: el.element_label, decision: "approved", actor_id: actor! });
+    } else {
+      await api.planning.decideElement(subId, { element_type: el.element_type, element_key: el.element_key, element_label: el.element_label, decision: "queried", note: el.draft, actor_id: actor! });
+      await api.planning.clarify(subId, { element_type: el.element_type, element_id: null, element_key: el.element_key, element_label: el.element_label, message: el.draft, actor_id: actor! });
+    }
+  };
+
+  const applyOne = async (el: PreReviewElement) => {
+    if (actor == null) return toast.error("Select who is reviewing first.");
+    try { await write(el); setApplied((s) => new Set(s).add(keyOf(el))); qc.invalidateQueries();
+      toast.success(`${el.element_label} ${el.verdict === "approve" ? "approved" : "queried & asked"}.`); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Could not apply."); }
+  };
+
+  const applyAll = async () => {
+    if (actor == null) return toast.error("Select who is reviewing first.");
+    if (!plan) return;
+    setApplying(true);
+    let n = 0;
+    try {
+      for (const el of plan.elements) {
+        if (applied.has(keyOf(el)) || el.current_decision) continue;
+        await write(el); setApplied((s) => new Set(s).add(keyOf(el))); n++;
+      }
+      qc.invalidateQueries();
+      toast.success(n ? `Applied ${n} decision${n !== 1 ? "s" : ""} — ${plan.counts.query} queried, ${plan.counts.approve} approved.` : "Every element was already decided.");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Could not apply all."); }
+    finally { setApplying(false); }
+  };
+
+  const isClarify = plan?.overall.action === "clarify";
+  return (
+    <Card className="mb-4 border-dashed border-primary/50 bg-primary/5">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary">
+          <Sparkles size={13} /> Pre-review agent
+        </div>
+        {plan && (
+          <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold text-text3">
+            {plan.source === "ai" ? "live model" : "offline"}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          {plan && (
+            <Button size="sm" onClick={applyAll} disabled={applying}>
+              <Check size={14} /> {applying ? "Applying…" : "Apply all"}
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={run} disabled={busy}>
+            <Sparkles size={14} /> {busy ? "Reading…" : plan ? "Regenerate" : "Pre-review for me"}
+          </Button>
+        </div>
+      </div>
+      {!plan && <p className="mt-1.5 text-xs text-text3">Triages every element — approve or query — drafts the question for each query, and proposes the next move. You confirm; nothing is sent until you apply.</p>}
+      {plan && (
+        <div className="mt-2.5 space-y-3">
+          {/* the proposed move */}
+          <div className={`flex flex-wrap items-center gap-2 rounded-lg px-3 py-2 text-xs ${isClarify ? "bg-warning-bg/50" : "bg-success-bg/50"}`}>
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold ${isClarify ? "bg-warning-bg text-warning" : "bg-success-bg text-success"}`}>
+              {isClarify ? <><HelpCircle size={11} /> Raise {plan.counts.query} quer{plan.counts.query !== 1 ? "ies" : "y"}</> : <><ShieldCheck size={11} /> Recommend sign-off</>}
+            </span>
+            <span className="text-text2">{plan.overall.rationale}</span>
+          </div>
+          {/* per-element verdicts */}
+          <ul className="divide-y divide-border">
+            {plan.elements.map((el) => {
+              const done = applied.has(keyOf(el)) || !!el.current_decision;
+              const q = el.verdict === "query";
+              return (
+                <li key={keyOf(el)} className="flex flex-wrap items-start gap-2 py-2 first:pt-0 last:pb-0">
+                  <span className={`mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${q ? "bg-warning-bg text-warning" : "bg-success-bg text-success"}`}>
+                    {q ? <><HelpCircle size={10} /> Query</> : <><Check size={10} /> Approve</>}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold text-text1">{el.element_label}</div>
+                    <div className="text-xs text-text2">{el.reason}</div>
+                    {q && el.draft && (
+                      <div className="mt-1 rounded-md border border-warning/25 bg-warning-bg/30 px-2 py-1.5 text-[11px] italic text-text2">“{el.draft}”</div>
+                    )}
+                  </div>
+                  {done ? (
+                    <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-success"><Check size={12} /> Applied</span>
+                  ) : (
+                    <button onClick={() => applyOne(el)}
+                      className="mt-0.5 shrink-0 rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-semibold text-text2 hover:bg-surface2">
+                      Apply
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="text-[10px] text-text3">Suggestions only — “Apply” records each decision under the selected reviewer, and a query also sends the drafted question to the entity.</p>
         </div>
       )}
     </Card>
@@ -331,7 +456,8 @@ export function PlanningDghrSubmission() {
           )}
         </div>
 
-        {/* ── the reviewer's copilot, per version (keyed so a brief never survives a version switch) ── */}
+        {/* ── the reviewer's copilots, per version (keyed so neither survives a version switch) ── */}
+        {pending && <PreReviewCard key={`pr-${id}`} subId={id} actor={actor} />}
         {pending && <ReviewBriefCard key={id} subId={id} />}
 
         {/* ── review progress + conditions ── */}

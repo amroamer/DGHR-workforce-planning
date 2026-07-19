@@ -307,6 +307,86 @@ def _and_list(names: list[str]) -> str:
     return ", ".join(names[:-1]) + " and " + names[-1]
 
 
+# ─────────────────────────── clarification chase (agent #2) ───────────────────────────
+def chase_message(action: str, *, department: str, entity: str, element: str,
+                  days_open: float, sla_days: float, escalate_after: float) -> str:
+    """A reminder (to the entity) or an escalation note (to senior DGHR), built from the item's real
+    age. Deterministic — the live model phrases it warmer, never differently."""
+    el = element or "a submitted figure"
+    if action == "escalate":
+        return (
+            f"Escalating: {department} ({entity}) — the clarification on {el} has gone unanswered for "
+            f"{days_open:g} days, beyond the {escalate_after:g}-day threshold. Recommend a senior "
+            f"follow-up with the entity champion before this version ages further."
+        )
+    # remind
+    over = max(0.0, days_open - sla_days)
+    past = (f", now {over:g} day{'s' if over != 1 else ''} past the {sla_days:g}-day SLA"
+            if over > 0 else f", approaching the {sla_days:g}-day SLA")
+    return (
+        f"Reminder: {department}'s clarification on {el} has been open {days_open:g} days{past}. "
+        f"Please respond with the evidence requested so the review can proceed."
+    )
+
+
+# ─────────────────────────── data-quality sweep (agent #3) ───────────────────────────
+def quality_insights(sig: dict) -> list[dict]:
+    """Turn the computed cross-entity signals into ranked insight cards. Every number here is passed
+    in from real aggregates in ai_service — this only phrases them. The live model rewrites the prose;
+    it can never introduce a figure that isn't in `sig`."""
+    out: list[dict] = []
+
+    growth = sig.get("growth") or []               # [(dept, entity, pct), …]
+    if growth:
+        ents = sorted({e for _, e, _ in growth})
+        top = sorted(growth, key=lambda x: -x[2])[:3]
+        out.append({
+            "kind": "growth", "severity": "high" if len(growth) >= 4 else "medium",
+            "title": "Unusual workload-growth requests",
+            "detail": (f"{len(growth)} department{'s' if len(growth) != 1 else ''} across "
+                       f"{len(ents)} entit{'ies' if len(ents) != 1 else 'y'} forecast workload growth "
+                       f"above 20% — led by " + _and_list([f"{d} (+{p}%)" for d, _, p in top]) +
+                       ". Challenge the volume basis before these enter the demand case."),
+            "entities": ents[:6], "count": len(growth),
+        })
+
+    for grp, ents in (sig.get("name_clusters") or [])[:1]:
+        el = sorted(ents)
+        out.append({
+            "kind": "naming", "severity": "medium",
+            "title": "Inconsistent driver naming across entities",
+            "detail": ("The same workload driver is recorded under different names — " +
+                       _and_list([f"“{x}”" for x in grp[:4]]) + f" appear across {len(el)} entities. "
+                       "Standardise the taxonomy so cross-entity demand stays comparable."),
+            "entities": el[:6], "count": len(grp),
+        })
+
+    for ts, ents in (sig.get("shared_shortage") or [])[:2]:
+        el = sorted(ents)
+        out.append({
+            "kind": "shared", "severity": "medium",
+            "title": f"{ts}: shortfall across multiple entities",
+            "detail": (f"{len(el)} entities report a shortfall in {ts} — a candidate for a shared or "
+                       f"cross-entity capability rather than {len(el)} separate hiring cases."),
+            "entities": el[:6], "count": len(el),
+        })
+
+    fc = sig.get("flag_top")
+    if fc:
+        flag, cnt, ents = fc
+        el = sorted(ents)
+        out.append({
+            "kind": "flags", "severity": "low",
+            "title": f"“{flag}” is the most common flag",
+            "detail": (f"{cnt} submission{'s' if cnt != 1 else ''} across {len(el)} entit"
+                       f"{'ies' if len(el) != 1 else 'y'} carry the “{flag}” flag. Batch-review these "
+                       "together — a shared root cause is likely."),
+            "entities": el[:6], "count": cnt,
+        })
+
+    return out
+
+
 def anomaly_narrative(entity_name: str, title: str) -> str:
     key = next((k for k in _ANOMALY if k in title.lower()), None)
     if key:

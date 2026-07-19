@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 from statistics import median
 
 from app.config import settings
-from app.services import calc_config, cycles, fallbacks, human_capital, import_engine, review, revisions, sizing
+from app.services import (
+    calc_config, cycles, fallbacks, human_capital, import_engine, review, revisions, sizing, workflow,
+)
 from app import models as m
 
 
@@ -559,3 +561,350 @@ def smart_assist(text: str) -> dict:
             except (json.JSONDecodeError, TypeError, KeyError):
                 pass
     return {**_extract_fallback(text), "source": "fallback"}
+
+
+# ═══════════════════════ Agent #1 — Submission Pre-Review ═══════════════════════
+# Goes past the read-only "Brief me": it triages EVERY reviewable element (approve vs query), drafts
+# the clarification for each query, and proposes the overall move — so the reviewer confirms rather
+# than assembles. Verdicts are deterministic and grounded in the same facts the engine flags on
+# (missing source, no forecast, handling-time outlier, floor with no legal basis); the live model
+# only rewrites the prose. Nothing is committed here — the UI applies each decision on the audited
+# maker-checker path (elements/decide + clarify), exactly as a human click would.
+def _pre_review_plan(db: Session, sub: m.DepartmentSubmission) -> dict:
+    facts = _review_facts(db, sub)
+    state = review.review_state(db, sub)
+    drivers_by_key = {d["element_key"]: d for d in facts["drivers"]}
+    mpu_by_driver = {o["driver"]: o for o in (facts.get("mpu_outliers") or [])}
+    mandates_by_key = {m.element_key(f["role"]): f for f in facts["mandates"]}
+
+    els: list[dict] = []
+    for e in state["elements"]:
+        et, key, label = e["element_type"], e["element_key"], e["element_label"]
+        concerns: list[str] = []
+        if et == "driver":
+            d = drivers_by_key.get(key)
+            if d:
+                if not d["has_source"]:
+                    concerns.append("no source system is recorded behind the volume")
+                if not d["forecast_stated"]:
+                    concerns.append("no forward forecast is stated")
+                o = mpu_by_driver.get(d["name"])
+                if o:
+                    concerns.append(f"handling time {o['minutes_per_unit']:g} min/unit sits well above the "
+                                    f"peer median of {o['peer_median']:g}")
+        elif et == "mandate":
+            f = mandates_by_key.get(key)
+            if f and not (f.get("legal_basis") or "").strip():
+                concerns.append("the statutory floor cites no legal basis")
+
+        verdict = "query" if concerns else "approve"
+        reason = (concerns[0][:1].upper() + concerns[0][1:] + (" (+ more)" if len(concerns) > 1 else "")
+                  if concerns else "Figures are internally consistent and evidenced — no open question.")
+        draft = ""
+        if verdict == "query":
+            ctx = _clarification_context(db, sub, et, key)
+            draft = fallbacks.draft_clarification("question", et, label, ctx, "")
+        els.append({"element_type": et, "element_key": key, "element_label": label,
+                    "current_decision": e["decision"], "verdict": verdict,
+                    "reason": reason, "draft": draft})
+
+    # A submission-level variance flag on a SHORTFALL isn't a missing source on any one element, but it
+    # is the reviewer's headline concern. Pin it to the largest driver so the query is concrete rather
+    # than waving at the total. (A surplus variance is a redeployment story, noted in the rationale.)
+    has_variance = any("variance" in (f or "").lower() for f in (facts.get("flags") or []))
+    if has_variance and facts["gap"] < 0:
+        driver_els = [x for x in els if x["element_type"] == "driver"]
+        if driver_els:
+            biggest = max(driver_els, key=lambda x: (drivers_by_key.get(x["element_key"], {}).get("fte") or 0))
+            if biggest["verdict"] == "approve":
+                fte = drivers_by_key.get(biggest["element_key"], {}).get("fte") or 0
+                biggest["verdict"] = "query"
+                biggest["reason"] = (f"Sizing variance exceeds 15% and this is the largest single driver "
+                                     f"({fte:g} FTE) — verify the volume and handling time before the gap stands.")
+                ctx = _clarification_context(db, sub, "driver", biggest["element_key"])
+                biggest["draft"] = fallbacks.draft_clarification("question", "driver", biggest["element_label"], ctx, "")
+
+    to_query = [x for x in els if x["verdict"] == "query"]
+    action = "clarify" if to_query else "recommend"
+    if to_query:
+        heads = ", ".join(x["element_label"] for x in to_query[:3])
+        rationale = (f"{len(to_query)} of {len(els)} elements need a question before this can be "
+                     f"recommended — {heads}. The rest are clean.")
+    else:
+        rationale = (f"All {len(els)} elements are evidenced and internally consistent; the sizing "
+                     f"reconciles ({facts['required_fte']} required vs {facts['available_fte']} available). "
+                     "Recommend sign-off.")
+    return {
+        "department": facts["department"], "entity": facts["entity"],
+        "required_fte": facts["required_fte"], "available_fte": facts["available_fte"], "gap": facts["gap"],
+        "flags": facts.get("flags") or [], "elements": els,
+        "counts": {"approve": len(els) - len(to_query), "query": len(to_query)},
+        "overall": {"action": action, "rationale": rationale},
+    }
+
+
+def pre_review(db: Session, sub_id: int) -> dict:
+    sub = db.get(m.DepartmentSubmission, sub_id)
+    if not sub:
+        return {"elements": [], "overall": {"action": "recommend", "rationale": ""},
+                "counts": {"approve": 0, "query": 0}, "source": "empty"}
+    plan = _pre_review_plan(db, sub)
+    if not plan["elements"]:
+        return {**plan, "source": "empty"}
+
+    if _live_enabled():
+        # The model rewrites reasons / draft questions / rationale in the analyst voice. Verdicts stay
+        # deterministic — the model may not approve an element the rules flagged.
+        compact = {
+            "department": plan["department"], "entity": plan["entity"],
+            "required_fte": plan["required_fte"], "available_fte": plan["available_fte"], "gap": plan["gap"],
+            "elements": [{"element_key": e["element_key"], "label": e["element_label"],
+                          "verdict": e["verdict"], "reason": e["reason"]} for e in plan["elements"]],
+        }
+        prompt = (
+            "You are pre-reviewing a department workforce submission for a DGHR reviewer. For each element "
+            "keep the given verdict but sharpen the reason (one evidence-seeking sentence), and for any "
+            "'query' element write a specific clarification question to the entity (2-3 sentences, ask for "
+            "the source/basis, never invent a number). Also write a 1-2 sentence overall rationale. Respond "
+            'ONLY with JSON: {"elements":[{"element_key":str,"reason":str,"draft":str}],"rationale":str}. '
+            "FACTS: " + json.dumps(compact)
+        )
+        raw = _call_anthropic(prompt, _ANALYST_SYSTEM, max_tokens=900, timeout=25.0)
+        if raw:
+            try:
+                data = json.loads(raw.replace("```json", "").replace("```", "").strip())
+                by_key = {str(x.get("element_key")): x for x in data.get("elements", [])}
+                for e in plan["elements"]:
+                    x = by_key.get(e["element_key"])
+                    if x:
+                        if x.get("reason"):
+                            e["reason"] = str(x["reason"])
+                        if e["verdict"] == "query" and x.get("draft"):
+                            e["draft"] = str(x["draft"])
+                if data.get("rationale"):
+                    plan["overall"]["rationale"] = str(data["rationale"])
+                return {**plan, "source": "ai"}
+            except (json.JSONDecodeError, TypeError, KeyError, AttributeError):
+                pass
+    return {**plan, "source": "fallback"}
+
+
+# ═══════════════════════ Agent #2 — Clarification Chase & Escalation ═══════════════════════
+# Watches the open-clarification queue and, per item, proposes the next move — remind, escalate, or
+# wait — with the message already drafted from the item's real age. `apply_chase` acts on one: a
+# reminder notifies the entity, an escalation notifies DGHR, both on the same workflow.notify + audit
+# path every other mutation uses. The clock the queue already ages by decides the default action.
+def _chase_action(level: str) -> str:
+    if level == "escalated":
+        return "escalate"
+    if level in ("overdue", "due_soon"):
+        return "remind"
+    return "wait"
+
+
+def clarification_triage(db: Session) -> dict:
+    sla_days, escalate_after = review.sla(db)
+    entities = {e.id: e for e in db.query(m.Entity).all()}
+    depts = {d.id: d for d in db.query(m.Department).all()}
+    subs = {s.id: s for s in db.query(m.DepartmentSubmission).all()}
+    order = {lvl: i for i, lvl in enumerate(reversed(revisions.LEVELS))}   # escalated first
+
+    items: list[dict] = []
+    counts = {"escalate": 0, "remind": 0, "wait": 0}
+    for c in db.query(m.SubmissionClarification).filter(
+            m.SubmissionClarification.status == "open",
+            m.SubmissionClarification.side == "dghr").all():
+        sub = subs.get(c.submission_id)
+        dept = depts.get(sub.department_id) if sub else None
+        ent = entities.get(dept.entity_id) if dept else None
+        age = revisions.clarification_age(c, sla_days=sla_days, escalate_after=escalate_after)
+        action = _chase_action(age["level"])
+        counts[action] += 1
+        element = c.element_label or c.element_type
+        draft = fallbacks.chase_message(
+            action if action != "wait" else "remind",
+            department=dept.name if dept else "—", entity=ent.name if ent else "—",
+            element=element, days_open=age["days_open"], sla_days=sla_days, escalate_after=escalate_after)
+        items.append({
+            "id": c.id, "submission_id": c.submission_id,
+            "entity_id": ent.id if ent else None, "entity": ent.name if ent else "—",
+            "department_id": dept.id if dept else None, "department": dept.name if dept else "—",
+            "element_label": element, "message": c.message,
+            "days_open": age["days_open"], "level": age["level"],
+            "action": action, "draft": draft,
+        })
+
+    items.sort(key=lambda r: (order.get(r["level"], 99), -r["days_open"]))
+    act_items = [i for i in items if i["action"] != "wait"]
+    if act_items:
+        n_esc, n_rem = counts["escalate"], counts["remind"]
+        bits = []
+        if n_esc:
+            bits.append(f"escalate {n_esc}")
+        if n_rem:
+            bits.append(f"send {n_rem} reminder{'s' if n_rem != 1 else ''}")
+        summary = ("Recommend " + " and ".join(bits) +
+                   f" across {len({i['entity'] for i in act_items})} entit"
+                   f"{'ies' if len({i['entity'] for i in act_items}) != 1 else 'y'} — worst-aged first.")
+    else:
+        summary = "Nothing needs chasing yet — no open clarification is past the reminder threshold."
+
+    if _live_enabled() and act_items:
+        compact = [{"id": i["id"], "department": i["department"], "entity": i["entity"],
+                    "element": i["element_label"], "days_open": i["days_open"],
+                    "action": i["action"]} for i in act_items]
+        prompt = (
+            "You are managing a DGHR clarification queue. For each item keep the given action (remind or "
+            "escalate) and write the message to send (2-3 sentences; a reminder is addressed to the entity, "
+            "an escalation to senior DGHR; reference the age; never invent a number). Also write a one-line "
+            'queue summary. Respond ONLY with JSON: {"items":[{"id":int,"draft":str}],"summary":str}. '
+            "ITEMS: " + json.dumps(compact)
+        )
+        raw = _call_anthropic(prompt, _ANALYST_SYSTEM, max_tokens=700, timeout=25.0)
+        if raw:
+            try:
+                data = json.loads(raw.replace("```json", "").replace("```", "").strip())
+                by_id = {int(x.get("id")): x for x in data.get("items", [])}
+                for i in items:
+                    x = by_id.get(i["id"])
+                    if x and x.get("draft"):
+                        i["draft"] = str(x["draft"])
+                if data.get("summary"):
+                    summary = str(data["summary"])
+                return {"items": items, "counts": counts, "summary": summary, "source": "ai"}
+            except (json.JSONDecodeError, TypeError, KeyError, AttributeError):
+                pass
+    return {"items": items, "counts": counts, "summary": summary,
+            "source": "fallback" if act_items else "empty"}
+
+
+def apply_chase(db: Session, clarification_id: int, action: str, message: str) -> dict:
+    """Act on one queue item: a reminder notifies the entity, an escalation notifies DGHR. Same
+    notify + audit + last-updated path as every other mutation, so it shows in the bell and the log."""
+    if action not in ("remind", "escalate"):
+        return {"ok": False, "error": "action must be 'remind' or 'escalate'."}
+    c = db.get(m.SubmissionClarification, clarification_id)
+    if not c or c.status != "open" or c.side != "dghr":
+        return {"ok": False, "error": "No open DGHR clarification with that id."}
+    sub = db.get(m.DepartmentSubmission, c.submission_id)
+    dept = db.get(m.Department, sub.department_id) if sub else None
+    ent = db.get(m.Entity, dept.entity_id) if dept else None
+    entity_id = ent.id if ent else None
+    element = c.element_label or c.element_type
+    body = (message or "").strip() or f"Clarification on {element} is awaiting a response."
+    if action == "remind":
+        workflow.notify(db, audience="entity", kind="reminder", entity_id=entity_id,
+                        title=f"{dept.name if dept else 'Department'} — reminder: clarification awaiting your response",
+                        body=body)
+        workflow.add_audit(db, label=f"Reminder sent to {ent.name if ent else 'entity'} · {element}",
+                           actor_name="DGHR Central Team", entity_id=entity_id,
+                           submission_id=c.submission_id, verb="reminded")
+    else:  # escalate
+        workflow.notify(db, audience="dghr", kind="clarification", entity_id=entity_id,
+                        title=f"Escalated: {dept.name if dept else 'Department'} — clarification unanswered",
+                        body=body)
+        workflow.add_audit(db, label=f"Clarification escalated · {dept.name if dept else '—'} · {element}",
+                           actor_name="DGHR Central Team", entity_id=entity_id,
+                           submission_id=c.submission_id, verb="escalated")
+    workflow.bump_last_updated(db)
+    db.commit()
+    return {"ok": True, "action": action, "clarification_id": clarification_id}
+
+
+# ═══════════════════════ Agent #3 — Data-Quality Sweep (cross-entity) ═══════════════════════
+# Reads every received submission and surfaces the patterns a single-submission view can't: growth
+# requests clustered across entities, the same driver named inconsistently, one type of work short
+# everywhere, and where a flag concentrates. Signals are computed from real sizing; fallbacks phrases
+# them; the live model rewrites the prose without touching a figure. This fills the "Recommended
+# action" story on Alerts with the cross-entity intelligence the vision promised.
+def quality_sweep(db: Session) -> dict:
+    names = {t.id: t.name for t in db.query(m.Typeset).all()}
+    entities = {e.id: e for e in db.query(m.Entity).all()}
+    depts = {d.id: d for d in db.query(m.Department).all()}
+
+    growth: list[tuple] = []
+    driver_entities: dict[str, set] = {}
+    shortage_by_typeset: dict[str, set] = {}
+    flag_counts: dict[str, int] = {}
+    flag_entities: dict[str, set] = {}
+    counted = 0
+
+    for s in db.query(m.DepartmentSubmission).all():
+        if s.status not in m.RECEIVED_STATUSES:
+            continue
+        dept = depts.get(s.department_id)
+        ent = entities.get(dept.entity_id) if dept else None
+        if not dept or not ent:
+            continue
+        counted += 1
+        sz = sizing.submission_sizing(db, s)
+        req = sz.get("required_fte") or 0
+        pc = sz.get("planning_change") or 0
+        if req and pc > 0 and (pc / req) >= 0.20:
+            growth.append((dept.name, ent.name, round(pc / req * 100)))
+        ts = names.get(dept.typeset_id)
+        if ts and (sz.get("gap") or 0) < 0:
+            shortage_by_typeset.setdefault(ts, set()).add(ent.name)
+        for f in sz.get("flags") or []:
+            flag_counts[f] = flag_counts.get(f, 0) + 1
+            flag_entities.setdefault(f, set()).add(ent.name)
+        for d in sz.get("drivers") or []:
+            driver_entities.setdefault(d["name"], set()).add(ent.name)
+
+    # near-duplicate driver names used by ≥2 entities under different spellings
+    distinct = list(driver_entities.keys())
+    name_clusters: list[tuple] = []
+    used: set[str] = set()
+    for i, a in enumerate(distinct):
+        if a in used:
+            continue
+        group = [a]
+        for b in distinct[i + 1:]:
+            if b in used:
+                continue
+            if 85 <= fuzz.token_sort_ratio(a, b) < 100:
+                group.append(b)
+                used.add(b)
+        used.add(a)
+        if len(group) >= 2:
+            ents = set().union(*(driver_entities[g] for g in group))
+            if len(ents) >= 2:
+                name_clusters.append((group, ents))
+    name_clusters.sort(key=lambda g: -len(g[1]))
+
+    shared = sorted(((ts, ents) for ts, ents in shortage_by_typeset.items() if len(ents) >= 3),
+                    key=lambda x: -len(x[1]))
+    flag_top = None
+    if flag_counts:
+        top = max(flag_counts.items(), key=lambda x: x[1])
+        flag_top = (top[0], top[1], flag_entities.get(top[0], set()))
+
+    sig = {"growth": growth, "name_clusters": name_clusters, "shared_shortage": shared, "flag_top": flag_top}
+    insights = fallbacks.quality_insights(sig)
+
+    if _live_enabled() and insights:
+        compact = [{"i": n, "kind": x["kind"], "title": x["title"], "detail": x["detail"],
+                    "entities": x["entities"], "count": x["count"]} for n, x in enumerate(insights)]
+        prompt = (
+            "You are DGHR's workforce-planning analyst writing cross-entity data-quality insights. Rewrite "
+            "each insight's title (<=8 words) and detail (1-2 sentences, specific, quietly challenging, "
+            "work-first) using ONLY the entities and figures given — never invent one. Respond ONLY with "
+            'JSON: {"insights":[{"i":int,"title":str,"detail":str}]}. INSIGHTS: ' + json.dumps(compact)
+        )
+        raw = _call_anthropic(prompt, _ANALYST_SYSTEM, max_tokens=800, timeout=25.0)
+        if raw:
+            try:
+                data = json.loads(raw.replace("```json", "").replace("```", "").strip())
+                by_i = {int(x.get("i")): x for x in data.get("insights", [])}
+                for n, x in enumerate(insights):
+                    y = by_i.get(n)
+                    if y:
+                        if y.get("title"):
+                            x["title"] = str(y["title"])
+                        if y.get("detail"):
+                            x["detail"] = str(y["detail"])
+                return {"insights": insights, "counted": counted, "source": "ai"}
+            except (json.JSONDecodeError, TypeError, KeyError, AttributeError):
+                pass
+    return {"insights": insights, "counted": counted,
+            "source": "fallback" if insights else "empty"}

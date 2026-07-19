@@ -245,6 +245,37 @@ export interface AlertRow {
 }
 export interface AlertsPayload { alerts: AlertRow[]; total: number; by_flag: { flag: string; count: number }[] }
 
+// ── AI agents ──
+// #1 Submission pre-review: a verdict + drafted question per reviewable element, plus the overall move.
+export interface PreReviewElement {
+  element_type: string; element_key: string; element_label: string;
+  current_decision: ElementDecision | null; verdict: "approve" | "query"; reason: string; draft: string;
+}
+export interface PreReviewPayload {
+  department: string; entity: string; required_fte: number; available_fte: number; gap: number;
+  flags: string[]; elements: PreReviewElement[];
+  counts: { approve: number; query: number };
+  overall: { action: "recommend" | "clarify"; rationale: string };
+  source: string;
+}
+// #2 Clarification triage: the open queue with a proposed move + drafted message per item.
+export interface TriageItem {
+  id: number; submission_id: number; entity_id: number | null; entity: string;
+  department_id: number | null; department: string; element_label: string; message: string;
+  days_open: number; level: "open" | "due_soon" | "overdue" | "escalated";
+  action: "remind" | "escalate" | "wait"; draft: string;
+}
+export interface TriagePayload {
+  items: TriageItem[]; counts: { escalate: number; remind: number; wait: number };
+  summary: string; source: string;
+}
+// #3 Data-quality sweep: cross-entity insights computed across every received submission.
+export interface QualityInsight {
+  kind: string; severity: "high" | "medium" | "low"; title: string; detail: string;
+  entities: string[]; count: number;
+}
+export interface QualitySweepPayload { insights: QualityInsight[]; counted: number; source: string }
+
 // ── submission pipeline (G7) ──
 export interface PipelineStage { key: string; label: string; count: number }
 export interface PipelineEntity { entity_id: number; name: string; code: string; stages: PipelineStage[]; total: number; received: number; outstanding: number }

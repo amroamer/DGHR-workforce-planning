@@ -96,3 +96,41 @@ def draft_clarification(body: DraftClarification, db: Session = Depends(get_db))
     return ai_service.draft_clarification(
         db, body.submission_id, body.direction, body.element_type,
         body.element_key, body.element_label, body.clarification_id)
+
+
+# ─────────────────────────── Agent #1 — Submission Pre-Review ───────────────────────────
+@router.post("/pre-review/{sub_id}")
+def pre_review(sub_id: int, db: Session = Depends(get_db)) -> dict:
+    """Per-element approve/query verdicts + drafted clarifications + the overall move, for one version.
+    Suggestions only — the UI applies each on the audited maker-checker path. Never cached."""
+    return ai_service.pre_review(db, sub_id)
+
+
+# ─────────────────────────── Agent #2 — Clarification Chase & Escalation ───────────────────────────
+@router.post("/clarification-triage")
+def clarification_triage(db: Session = Depends(get_db)) -> dict:
+    """The open-clarification queue with a proposed move per item (remind / escalate / wait)."""
+    return ai_service.clarification_triage(db)
+
+
+class ChaseApply(BaseModel):
+    clarification_id: int
+    action: str  # "remind" | "escalate"
+    message: str = ""
+
+
+@router.post("/clarification-chase")
+def clarification_chase(body: ChaseApply, db: Session = Depends(get_db)) -> dict:
+    if body.action not in ("remind", "escalate"):
+        raise HTTPException(422, "action must be 'remind' or 'escalate'.")
+    out = ai_service.apply_chase(db, body.clarification_id, body.action, body.message)
+    if not out.get("ok"):
+        raise HTTPException(409, out.get("error", "Could not apply."))
+    return out
+
+
+# ─────────────────────────── Agent #3 — Data-Quality Sweep ───────────────────────────
+@router.post("/quality-sweep")
+def quality_sweep(db: Session = Depends(get_db)) -> dict:
+    """Cross-entity data-quality insights computed across every received submission."""
+    return ai_service.quality_sweep(db)

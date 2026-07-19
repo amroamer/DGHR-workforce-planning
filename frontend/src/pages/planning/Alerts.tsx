@@ -1,16 +1,20 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { AlertTriangle, ShieldCheck, ArrowUpRight, Flag, Clock, MessageSquareWarning } from "lucide-react";
+import { toast } from "sonner";
+import { AlertTriangle, ShieldCheck, ArrowUpRight, Flag, Clock, MessageSquareWarning,
+  Sparkles, Check, Send, Radar, Building2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageBody } from "@/components/shared/AppShell";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { THEAD_TR, TH, TH_NUM, TROW } from "@/components/ui/table";
 import { GapPill, StatCard } from "./widgets";
 import { Q_STATUS_LABEL, Q_STATUS_VALUE } from "./Departments";
+import type { QualitySweepPayload, TriagePayload, TriageItem } from "@/lib/planning";
 
 const AGE_TONE: Record<string, { bg: string; fg: string; label: string }> = {
   open: { bg: "rgb(var(--text-3) / 0.15)", fg: "rgb(var(--text-2))", label: "Open" },
@@ -41,6 +45,164 @@ const rowAccent = (flags: string[]) =>
       : flags.includes("No drivers entered") ? "border-l-purple"
         : "border-l-transparent";
 
+const SEV_PILL: Record<string, string> = {
+  high: "bg-danger-bg text-danger", medium: "bg-warning-bg text-warning", low: "bg-surface2 text-text2",
+};
+const ACTION_PILL: Record<string, { pill: string; label: string }> = {
+  escalate: { pill: "bg-danger-bg text-danger", label: "Escalate" },
+  remind: { pill: "bg-warning-bg text-warning", label: "Remind" },
+  wait: { pill: "bg-surface2 text-text2", label: "Wait" },
+};
+
+/** Agent #3 — the cross-entity data-quality sweep. Reads every received submission and surfaces the
+ *  patterns no single-submission view can see. On demand; source badge says who phrased it. */
+function InsightsCard() {
+  const [busy, setBusy] = useState(false);
+  const [data, setData] = useState<QualitySweepPayload | null>(null);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const r = await api.aiQualitySweep();
+      if (!r.insights.length) { toast.message("No cross-entity patterns stood out."); return; }
+      setData(r);
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Could not run the sweep."); }
+    finally { setBusy(false); }
+  };
+  return (
+    <Card className="mb-4 border-dashed border-teal/50 bg-teal-bg/30">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal">
+          <Radar size={14} /> Cross-entity insights
+        </div>
+        {data && <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold text-text3">{data.source === "ai" ? "live model" : "offline"}{data.counted ? ` · ${data.counted} submissions` : ""}</span>}
+        <div className="ml-auto">
+          <Button variant="secondary" size="sm" onClick={run} disabled={busy}>
+            <Sparkles size={14} /> {busy ? "Scanning…" : data ? "Re-scan" : "Scan all entities"}
+          </Button>
+        </div>
+      </div>
+      {!data && <p className="mt-1.5 text-xs text-text3">Patterns that only show across entities: growth clustered, the same driver named inconsistently, one type of work short everywhere, and where a flag concentrates.</p>}
+      {data && (
+        <div className="mt-2.5 grid gap-2.5 md:grid-cols-2">
+          {data.insights.map((x, i) => (
+            <div key={i} className="rounded-lg border border-border bg-card p-3">
+              <div className="mb-1 flex items-center gap-2">
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${SEV_PILL[x.severity]}`}>{x.severity}</span>
+                <span className="text-[13px] font-semibold text-text1">{x.title}</span>
+              </div>
+              <p className="text-xs leading-relaxed text-text2">{x.detail}</p>
+              {x.entities.length > 0 && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                  <Building2 size={11} className="text-text3" />
+                  {x.entities.slice(0, 5).map((e) => <span key={e} className="rounded bg-surface2 px-1.5 py-0.5 text-[10px] text-text2">{e}</span>)}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/** Agent #2 — clarification triage. Reads the open queue, proposes remind/escalate/wait per item with
+ *  the message drafted from its real age, and applies on the same notify+audit path a manual nudge uses. */
+function TriageCard() {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [data, setData] = useState<TriagePayload | null>(null);
+  const [done, setDone] = useState<Set<number>>(new Set());
+  const [applying, setApplying] = useState<number | "all" | null>(null);
+  const run = async () => {
+    setBusy(true);
+    try { const r = await api.aiClarificationTriage(); setData(r); setDone(new Set()); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Could not triage."); }
+    finally { setBusy(false); }
+  };
+  const apply = async (item: TriageItem) => {
+    if (item.action === "wait") return;
+    await api.aiClarificationChase({ clarification_id: item.id, action: item.action, message: item.draft });
+    setDone((s) => new Set(s).add(item.id));
+  };
+  const applyOne = async (item: TriageItem) => {
+    setApplying(item.id);
+    try { await apply(item); qc.invalidateQueries(); toast.success(`${item.action === "escalate" ? "Escalated" : "Reminder sent"} — ${item.department}.`); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Could not apply."); }
+    finally { setApplying(null); }
+  };
+  const applyAll = async () => {
+    if (!data) return;
+    setApplying("all");
+    let n = 0;
+    try {
+      for (const item of data.items) {
+        if (item.action === "wait" || done.has(item.id)) continue;
+        await apply(item); n++;
+      }
+      qc.invalidateQueries();
+      toast.success(n ? `Actioned ${n} item${n !== 1 ? "s" : ""} — ${data.counts.escalate} escalated, ${data.counts.remind} reminded.` : "Nothing to action.");
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Could not apply all."); }
+    finally { setApplying(null); }
+  };
+  const actionable = (data?.items ?? []).filter((i) => i.action !== "wait");
+  return (
+    <Card className="mb-4 border-dashed border-primary/50 bg-primary/5">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-primary">
+          <MessageSquareWarning size={14} /> Clarification triage agent
+        </div>
+        {data && <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold text-text3">{data.source === "ai" ? "live model" : "offline"}</span>}
+        <div className="ml-auto flex items-center gap-2">
+          {data && actionable.length > 0 && (
+            <Button size="sm" onClick={applyAll} disabled={applying !== null}>
+              <Send size={13} /> {applying === "all" ? "Sending…" : "Apply all"}
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={run} disabled={busy}>
+            <Sparkles size={14} /> {busy ? "Reading…" : data ? "Re-triage" : "Triage the queue"}
+          </Button>
+        </div>
+      </div>
+      {!data && <p className="mt-1.5 text-xs text-text3">Reads every open clarification, proposes a move per item — remind, escalate, or wait — and drafts the message. You confirm before anything is sent.</p>}
+      {data && (
+        <div className="mt-2.5 space-y-3">
+          <p className="text-xs text-text2">{data.summary}</p>
+          {data.items.length > 0 && (
+            <ul className="divide-y divide-border">
+              {data.items.map((item) => {
+                const t = ACTION_PILL[item.action];
+                const isDone = done.has(item.id);
+                return (
+                  <li key={item.id} className="flex flex-wrap items-start gap-2 py-2 first:pt-0 last:pb-0">
+                    <span className={`mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${t.pill}`}>{t.label}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-semibold text-text1">{item.department} <span className="font-normal text-text3">· {item.entity} · {item.element_label} · {item.days_open}d</span></div>
+                      {item.action !== "wait" && item.draft && (
+                        <div className="mt-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] italic text-text2">“{item.draft}”</div>
+                      )}
+                    </div>
+                    {item.action === "wait" ? (
+                      <span className="mt-0.5 shrink-0 text-[11px] text-text3">Within SLA</span>
+                    ) : isDone ? (
+                      <span className="mt-0.5 inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-success"><Check size={12} /> Sent</span>
+                    ) : (
+                      <button onClick={() => applyOne(item)} disabled={applying !== null}
+                        className="mt-0.5 shrink-0 rounded-md border border-border bg-card px-2 py-0.5 text-[11px] font-semibold text-text2 hover:bg-surface2 disabled:opacity-50">
+                        {applying === item.id ? "…" : item.action === "escalate" ? "Escalate" : "Remind"}
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="text-[10px] text-text3">A reminder notifies the entity; an escalation notifies DGHR. Both are recorded in the audit log.</p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function PlanningAlerts() {
   const navigate = useNavigate();
   const [flag, setFlag] = useState<string | null>(null);
@@ -62,6 +224,10 @@ export function PlanningAlerts() {
           <StatCard icon={<MessageSquareWarning size={20} />} tone="#C2410C" value={needAction.length} label="Clarifications Overdue" sub={`of ${queue?.total ?? 0} open`} />
           <StatCard icon={<Clock size={20} />} tone="#B91C1C" value={queue?.by_level?.escalated ?? 0} label="Escalated" sub={`Past ${queue?.escalate_after ?? 10} days`} />
         </div>
+
+        {/* AI agents — cross-entity sweep (#3) and clarification triage (#2), both on demand. */}
+        <InsightsCard />
+        <TriageCard />
 
         {/* Escalation queue — clarifications age from their own timestamps, so this fills without a
             scheduler. An unanswered question is the workflow's quietest failure; here it is loud. */}
