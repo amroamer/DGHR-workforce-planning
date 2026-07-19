@@ -42,6 +42,7 @@ class CreateCase(BaseModel):
     corrections: list[str] = []
     priority: str = "Medium"
     category: str = "Data Quality"
+    origin: str = "dghr"  # dghr | entity
 
 
 @router.post("")
@@ -49,7 +50,7 @@ def create_case(body: CreateCase, db: Session = Depends(get_db)) -> dict:
     c = cases.open_clarification(
         db, entity_id=body.entity_id, package_label=body.package_label,
         issue_summary=body.issue_summary, corrections=body.corrections,
-        priority=body.priority, category=body.category,
+        priority=body.priority, category=body.category, origin=body.origin,
     )
     return {"ok": True, "ref": c.ref, "id": c.id}
 

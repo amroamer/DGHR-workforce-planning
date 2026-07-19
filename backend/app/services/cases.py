@@ -189,7 +189,9 @@ def clarifications_kpis(db: Session, entity_id=None) -> dict:
 # ─────────────────────────── mutations (§11) ───────────────────────────
 def open_clarification(db: Session, *, entity_id: int, package_label: str, issue_summary: str,
                        corrections: list | None = None, priority="Medium", category="Data Quality",
-                       actor="DGHR Analyst (Aisha Khan)") -> m.Case:
+                       actor="DGHR Analyst (Aisha Khan)", origin: str = "dghr") -> m.Case:
+    """Open a clarification case. origin='dghr' (default) is DGHR asking the entity;
+    origin='entity' is the entity raising a query to DGHR."""
     aisha = db.query(m.User).filter(m.User.name == "Aisha Khan").first()
     ref = _next_ref(db, "CLF")
     c = m.Case(ref=ref, kind="clarification", entity_id=entity_id, package_label=package_label,
@@ -199,11 +201,17 @@ def open_clarification(db: Session, *, entity_id: int, package_label: str, issue
                issue_summary=issue_summary, corrections=corrections or [])
     db.add(c)
     db.flush()
-    db.add(m.CaseMessage(case_id=c.id, author_id=aisha.id if aisha else None, side="dghr", body=issue_summary))
-    workflow.add_audit(db, label="Clarification created", actor_name="Aisha Khan", entity_id=entity_id, case_id=c.id)
     e = db.get(m.Entity, entity_id)
-    workflow.notify(db, audience="entity", kind="clarification", entity_id=entity_id,
-                    title="Clarification Requested", body=issue_summary)
+    if origin == "entity":
+        db.add(m.CaseMessage(case_id=c.id, author_id=None, side="entity", body=issue_summary))
+        workflow.add_audit(db, label="Entity raised a query", actor_name=e.name if e else "Entity", entity_id=entity_id, case_id=c.id)
+        workflow.notify(db, audience="dghr", kind="clarification", entity_id=entity_id,
+                        title="Entity Query Raised", body=f"{e.name if e else 'An entity'}: {issue_summary}")
+    else:
+        db.add(m.CaseMessage(case_id=c.id, author_id=aisha.id if aisha else None, side="dghr", body=issue_summary))
+        workflow.add_audit(db, label="Clarification created", actor_name="Aisha Khan", entity_id=entity_id, case_id=c.id)
+        workflow.notify(db, audience="entity", kind="clarification", entity_id=entity_id,
+                        title="Clarification Requested", body=issue_summary)
     workflow.bump_last_updated(db)
     db.commit()
     return c
@@ -355,6 +363,25 @@ def remind(db: Session, entity_ids: list[int]) -> dict:
     return {"ok": True, "reminded": len(entity_ids)}
 
 
+def escalate(db: Session, entity_ids: list[int]) -> dict:
+    """Escalate outstanding submissions: bump any open cases to High priority + notify entity + audit."""
+    n = 0
+    for eid in entity_ids:
+        e = db.get(m.Entity, eid)
+        if not e:
+            continue
+        for c in db.query(m.Case).filter(m.Case.entity_id == eid, m.Case.status != "resolved").all():
+            c.priority = "High"
+        workflow.add_audit(db, label="Escalated to senior review", actor_name="DGHR Admin", entity_id=eid)
+        workflow.notify(db, audience="entity", kind="status", entity_id=eid,
+                        title="Escalated to Senior Review",
+                        body="Your outstanding submission has been escalated by DGHR.")
+        n += 1
+    workflow.bump_last_updated(db)
+    db.commit()
+    return {"ok": True, "escalated": n}
+
+
 def approve(db: Session, entity_ids: list[int] | None = None, ready: bool = False) -> dict:
     if ready:
         entities = [e for e in db.query(m.Entity).all()
@@ -381,17 +408,23 @@ def approve(db: Session, entity_ids: list[int] | None = None, ready: bool = Fals
 
 
 def bulk_review(db: Session, entity_ids: list[int]) -> dict:
-    n = 0
+    reviewed = 0  # entities that had at least one submitted package moved to review
+    skipped = 0   # entities with nothing eligible
     for eid in entity_ids:
+        moved = 0
         for ep in db.query(m.EntityPackage).filter(m.EntityPackage.entity_id == eid, m.EntityPackage.applicable.is_(True)).all():
             if ep.status == "submitted":
                 ep.status = "under_review"
-                n += 1
-        recompute_rollup(db, eid)
-        workflow.add_audit(db, label="Moved to review", actor_name="DGHR Admin", entity_id=eid)
+                moved += 1
+        if moved:
+            reviewed += 1
+            recompute_rollup(db, eid)
+            workflow.add_audit(db, label="Moved to review", actor_name="DGHR Admin", entity_id=eid)
+        else:
+            skipped += 1
     workflow.bump_last_updated(db)
     db.commit()
-    return {"ok": True, "reviewed": len(entity_ids)}
+    return {"ok": True, "reviewed": reviewed, "skipped": skipped}
 
 
 # ─────────────────────────── helpers ───────────────────────────

@@ -158,6 +158,7 @@ export interface ConfigPackage {
 }
 export interface ConfigPayload {
   cycle: {
+    id: number;
     name: string;
     status: string;
     starts_on: string;
@@ -349,8 +350,8 @@ export interface DriversPayload {
     outstanding_gaps: number;
     evidence_coverage: number;
   };
-  drivers: { id: number; category: string; description: string; impact: string; horizon: string; status: string }[];
-  evidence: { id: number; filename: string; source_org: string; linked_label: string; quality: string; uploaded_at: string | null }[];
+  drivers: { id: number; category: string; description: string; impact: string; horizon: string; status: string; linked_sections: string[] }[];
+  evidence: { id: number; filename: string; source_org: string; linked_label: string; quality: string; linked_driver_id: number | null; uploaded_at: string | null }[];
   evidence_total: number;
   comments: { author_name: string; author_role: string; body: string; related_label: string | null }[];
 }

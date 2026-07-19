@@ -24,7 +24,9 @@ export function SkylineWatermark({ className }: { className?: string }) {
       className={className}
       aria-hidden
     >
-      <g fill="#0B1B3B" opacity="0.06">
+      {/* Themeable fill: dark-navy on the white light header, near-white on the dark
+          gradient header. `var()` only resolves via CSS, so set it through `style`. */}
+      <g style={{ fill: "rgb(var(--header-fg))", opacity: 0.06 }}>
         {/* Burj-like central spire */}
         <path d="M470 180V54c0-3 3-4 4-1l6 20 6-20c1-3 4-2 4 1v126h-20z" />
         <rect x="452" y="86" width="16" height="94" />

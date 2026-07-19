@@ -1,15 +1,31 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAudience } from "@/lib/hooks";
 import { relativeTime } from "@/lib/utils";
+import type { NotificationItem } from "@/lib/types";
 
 // NotificationBell (SPEC §4.2): red count badge, dropdown, "mark all read".
 export function NotificationBell() {
   const { audience, entityId } = useAudience();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const qc = useQueryClient();
+
+  // HDR-02: click a notification → mark it read + navigate to its case/screen.
+  const onItemClick = async (n: NotificationItem) => {
+    setOpen(false);
+    if (!n.read) {
+      await api.markNotificationsRead({ audience, entity_id: entityId ?? null, ids: [n.id] });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    }
+    const dest = audience === "dghr"
+      ? (n.kind === "ai_flag" ? "/dghr/data-quality" : n.kind === "clarification" ? "/dghr/clarifications" : "/dghr/command-center")
+      : (n.kind === "clarification" || n.kind === "status" ? "/entity/clarifications" : "/entity/home");
+    navigate(dest);
+  };
 
   const { data } = useQuery({
     queryKey: ["notifications", audience, entityId],
@@ -54,9 +70,10 @@ export function NotificationBell() {
                 <div className="px-4 py-8 text-center text-sm text-text3">No notifications</div>
               ) : (
                 (data?.items ?? []).map((n) => (
-                  <div
+                  <button
                     key={n.id}
-                    className="flex gap-2 border-b border-[#EEF2F7] px-4 py-3 last:border-0"
+                    onClick={() => onItemClick(n)}
+                    className="flex w-full gap-2 border-b border-border px-4 py-3 text-left last:border-0 hover:bg-page"
                   >
                     {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
                     <div className={n.read ? "opacity-70" : ""}>
@@ -64,7 +81,7 @@ export function NotificationBell() {
                       <div className="text-xs text-text2">{n.body}</div>
                       <div className="mt-0.5 text-[11px] text-text3">{relativeTime(n.created_at)}</div>
                     </div>
-                  </div>
+                  </button>
                 ))
               )}
             </div>

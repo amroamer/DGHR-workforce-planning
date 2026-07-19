@@ -4,17 +4,16 @@ import { gotoAs, assertNoHorizontalOverflow, assertElementsInBounds } from "./he
 // SPEC targets laptop/projector 1440–1920px, minimum 1280px.
 const WIDTHS = [1280, 1440, 1920];
 const SCREENS: { path: string; persona: "dghr-admin" | "entity-dm"; heading: string }[] = [
-  { path: "/dghr/command-center", persona: "dghr-admin", heading: "DGHR Data Collection Command Center" },
-  { path: "/dghr/data-collection", persona: "dghr-admin", heading: "DGHR Data Request Configuration" },
-  { path: "/dghr/submissions", persona: "dghr-admin", heading: "DGHR Entity Submission Tracker" },
-  { path: "/dghr/data-quality", persona: "dghr-admin", heading: "DGHR Data Quality & Validation" },
-  { path: "/dghr/forecasting-readiness", persona: "dghr-admin", heading: "Forecasting Readiness" },
-  { path: "/dghr/clarifications", persona: "dghr-admin", heading: "DGHR Clarifications & Resubmissions" },
-  { path: "/entity/home", persona: "entity-dm", heading: "Entity Data Collection Home" },
-  { path: "/entity/org-structure", persona: "entity-dm", heading: "Organization Structure Submission" },
-  { path: "/entity/workforce", persona: "entity-dm", heading: "Current Workforce Data" },
-  { path: "/entity/workload", persona: "entity-dm", heading: "Workload & Service Data" },
-  { path: "/entity/demand-drivers", persona: "entity-dm", heading: "Future Demand Drivers & Evidence" },
+  { path: "/dghr/government", persona: "dghr-admin", heading: "Government-Wide Position" },
+  { path: "/dghr/alerts", persona: "dghr-admin", heading: "Alerts & Smart Flags" },
+  { path: "/dghr/reports", persona: "dghr-admin", heading: "Reports" },
+  { path: "/dghr/admin", persona: "dghr-admin", heading: "Cycle & Administration" },
+  { path: "/dghr/method", persona: "dghr-admin", heading: "Method & Typeset Library" },
+  { path: "/entity/departments", persona: "entity-dm", heading: "Departments" },
+  { path: "/entity/submissions", persona: "entity-dm", heading: "My Submissions" },
+  { path: "/entity/reports", persona: "entity-dm", heading: "Reports" },
+  { path: "/entity/calendar", persona: "entity-dm", heading: "Programme & Wave Management" },
+  { path: "/entity/help", persona: "entity-dm", heading: "Help & Support" },
 ];
 
 for (const width of WIDTHS) {

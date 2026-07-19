@@ -13,6 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { KpiCard } from "./KpiCard";
 import { StatusBadge } from "./StatusBadge";
+import { Modal, Field, TextInput, TextArea } from "./Modal";
 import type { CaseSummary } from "@/lib/types";
 
 type Side = "dghr" | "entity";
@@ -80,13 +81,57 @@ export function ClarificationsView({ side, entityId, title, subtitle }: { side: 
     await run(() => api.caseMessage(selectedId, side, body), "Message sent.");
   };
 
+  // Entity-raised query
+  const [queryOpen, setQueryOpen] = useState(false);
+  const [queryPkg, setQueryPkg] = useState("Current Workforce Data");
+  const [queryText, setQueryText] = useState("");
+  const [queryBusy, setQueryBusy] = useState(false);
+  const closeQuery = () => { setQueryOpen(false); setQueryText(""); setQueryPkg("Current Workforce Data"); };
+  const raiseQuery = async () => {
+    if (entityId == null || !queryText.trim()) return toast.error("Please describe your query.");
+    setQueryBusy(true);
+    try {
+      const res = await api.createCase({ entity_id: entityId, issue_summary: queryText, package_label: queryPkg, origin: "entity" });
+      refresh();
+      toast.success(`Query ${res.ref} sent to DGHR.`);
+      closeQuery();
+      setSelectedId(res.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to raise query.");
+    } finally {
+      setQueryBusy(false);
+    }
+  };
+
+  // CLR-05 prev/next, CLR-13 assign reviewer, CLR-15 audit modal, CLR-07 tabs
+  const [detailTab, setDetailTab] = useState<"conversation" | "evidence" | "history">("conversation");
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
+  const reviewers = useQuery({ queryKey: ["dghr-reviewers"], queryFn: api.dghrReviewers, enabled: assignOpen });
+  const flatIds = (list.data?.all ?? []).map((c) => c.id);
+  const idx = selectedId != null ? flatIds.indexOf(selectedId) : -1;
+  const goRel = (delta: number) => { const n = flatIds[idx + delta]; if (n != null) { setSelectedId(n); setDetailTab("conversation"); } };
+  const assignReviewer = async (rid: number) => {
+    if (selectedId == null) return;
+    await run(() => api.caseAction(selectedId, "assign", rid), "Reviewer assigned.");
+    setAssignOpen(false);
+  };
+
   const k = kpis.data;
   const d = detail.data;
   const groups = list.data?.groups;
 
   return (
     <>
-      <PageHeader title={title} subtitle={subtitle} />
+      <PageHeader
+        title={title}
+        subtitle={subtitle}
+        actions={
+          side === "entity" && entityId != null ? (
+            <Button size="sm" onClick={() => setQueryOpen(true)}><HelpCircle size={15} /> Raise a Query</Button>
+          ) : undefined
+        }
+      />
       <PageBody>
         {/* KPIs */}
         <div className="grid grid-cols-5 gap-4">
@@ -131,8 +176,14 @@ export function ClarificationsView({ side, entityId, title, subtitle }: { side: 
             ) : (
               <>
                 <div className="flex items-center justify-between border-b border-border px-5 py-4">
-                  <div className="flex items-center gap-2"><span className="text-base font-semibold text-text1">{d.kind === "return" ? "Return" : "Clarification"} · <span className="font-mono text-primary">{d.ref}</span></span><StatusBadge value={d.status} /></div>
-                  <div className="flex items-center gap-1 text-text3"><ChevronLeft size={16} /><ChevronRight size={16} /></div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setSelectedId(null)} className="text-xs font-semibold text-text3 hover:text-text1">← Back</button>
+                    <span className="text-base font-semibold text-text1">{d.kind === "return" ? "Return" : "Clarification"}: <span className="font-mono text-primary">{d.ref}</span></span><StatusBadge value={d.status} />
+                  </div>
+                  <div className="flex items-center gap-1 text-text3">
+                    <button aria-label="Previous case" disabled={idx <= 0} onClick={() => goRel(-1)} className="hover:text-text1 disabled:opacity-30"><ChevronLeft size={16} /></button>
+                    <button aria-label="Next case" disabled={idx < 0 || idx >= flatIds.length - 1} onClick={() => goRel(1)} className="hover:text-text1 disabled:opacity-30"><ChevronRight size={16} /></button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-4 gap-3 border-b border-border px-5 py-3 text-xs">
                   <div><div className="text-text3">Entity</div><div className="font-semibold text-text1">{d.entity_name}</div></div>
@@ -146,24 +197,56 @@ export function ClarificationsView({ side, entityId, title, subtitle }: { side: 
                     {d.corrections.length ? <ul className="list-disc space-y-1 pl-4 text-sm text-text2">{d.corrections.map((c, i) => <li key={i}>{c}</li>)}</ul> : <p className="text-sm text-text3">—</p>}
                   </div>
                 </div>
-                {/* conversation */}
-                <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4" style={{ maxHeight: 320 }}>
-                  {d.messages.map((mm) => (
-                    <div key={mm.id} className={`flex gap-2.5 ${mm.side === "entity" ? "flex-row-reverse" : ""}`}>
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: mm.side === "dghr" ? "#0B1B3B" : "#16A34A" }}>{mm.side === "dghr" ? "DG" : "EN"}</span>
-                      <div className={`max-w-[75%] rounded-lg p-3 ${mm.side === "dghr" ? "bg-page" : "bg-success-bg"}`}>
-                        <div className="mb-0.5 flex items-center gap-2 text-[11px] text-text3"><span className="font-semibold text-text2">{mm.author}</span> · {mm.author_role} · {relativeTime(mm.created_at)}</div>
-                        <div className="text-sm text-text1">{mm.body}</div>
-                      </div>
-                    </div>
+                {/* tabs (CLR-07) */}
+                <div className="flex gap-4 border-b border-border px-5 pt-3">
+                  {(["conversation", "evidence", "history"] as const).map((t) => (
+                    <button key={t} onClick={() => setDetailTab(t)} className={`pb-2.5 text-sm font-semibold ${detailTab === t ? "border-b-2 border-primary text-primary" : "text-text3"}`}>
+                      {t === "conversation" ? "Conversation" : t === "evidence" ? `Evidence (${d.evidence.length})` : "Response History"}
+                    </button>
                   ))}
                 </div>
-                {/* composer */}
-                <div className="flex items-center gap-2 border-t border-border px-5 py-3">
-                  <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Write a comment…" className="h-10 flex-1 rounded-btn border border-border px-3 text-sm" />
-                  <button className="text-text3 hover:text-text1"><Paperclip size={18} /></button>
-                  <Button size="sm" onClick={send} disabled={busy || !draft.trim()}><Send size={14} /> Send</Button>
-                </div>
+
+                {detailTab === "conversation" && (
+                  <>
+                    <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4" style={{ maxHeight: 280 }}>
+                      {d.messages.map((mm) => (
+                        <div key={mm.id} className={`flex gap-2.5 ${mm.side === "entity" ? "flex-row-reverse" : ""}`}>
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: mm.side === "dghr" ? "rgb(var(--navy-900))" : "rgb(var(--success))" }}>{mm.side === "dghr" ? "DG" : "EN"}</span>
+                          <div className={`max-w-[75%] rounded-lg p-3 ${mm.side === "dghr" ? "bg-page" : "bg-success-bg"}`}>
+                            <div className="mb-0.5 flex items-center gap-2 text-[11px] text-text3"><span className="font-semibold text-text2">{mm.author}</span>, {mm.author_role}, {relativeTime(mm.created_at)}</div>
+                            <div className="text-sm text-text1">{mm.body}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 border-t border-border px-5 py-3">
+                      <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()} placeholder="Write a comment…" className="h-10 flex-1 rounded-btn border border-border px-3 text-sm" />
+                      <Button size="sm" onClick={send} disabled={busy || !draft.trim()}><Send size={14} /> Send</Button>
+                    </div>
+                  </>
+                )}
+                {detailTab === "evidence" && (
+                  <div className="flex-1 space-y-2 overflow-y-auto px-5 py-4" style={{ maxHeight: 340 }}>
+                    {d.evidence.length === 0 && <div className="text-sm text-text3">No evidence linked to this case yet.</div>}
+                    {d.evidence.map((ev, i) => (
+                      <div key={i} className="flex items-center gap-2 rounded-lg border border-border p-2 text-xs">
+                        <Paperclip size={15} className="shrink-0 text-text3" />
+                        <div className="min-w-0 flex-1"><div className="truncate font-semibold text-text1">{ev.filename}</div><div className="text-text3">{ev.linked_label}</div></div>
+                        <StatusBadge value={ev.quality.toLowerCase()} label={ev.quality} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {detailTab === "history" && (
+                  <div className="flex-1 space-y-2.5 overflow-y-auto px-5 py-4" style={{ maxHeight: 340 }}>
+                    {d.audit.map((a, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs">
+                        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                        <div><div className="text-text1">{a.label}</div><div className="text-text3">{a.actor_name}, {relativeTime(a.created_at)}</div></div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </Card>
@@ -177,9 +260,9 @@ export function ClarificationsView({ side, entityId, title, subtitle }: { side: 
                   <>
                     <ActionBtn icon={<CornerDownLeft size={15} />} label="Return to Entity" disabled={!d || busy} onClick={() => d && run(() => api.caseAction(d.id, "return_to_entity"), "Returned to entity.")} />
                     <ActionBtn icon={<FilePlus2 size={15} />} label="Request More Evidence" disabled={!d || busy} onClick={() => d && run(() => api.caseAction(d.id, "request_evidence"), "Evidence requested.")} />
-                    <ActionBtn icon={<CheckCheck size={15} />} label="Accept Resubmission" tone="success" disabled={!d || busy} onClick={() => d && run(() => api.caseAction(d.id, "accept_resubmission"), "Resubmission accepted — case resolved.")} />
+                    <ActionBtn icon={<CheckCheck size={15} />} label="Accept Resubmission" tone="success" disabled={!d || busy} onClick={() => d && run(() => api.caseAction(d.id, "accept_resubmission"), "Resubmission accepted. Case resolved.")} />
                     <ActionBtn icon={<ArrowUpCircle size={15} />} label="Escalate" tone="warning" disabled={!d || busy} onClick={() => d && run(() => api.caseAction(d.id, "escalate"), "Case escalated.")} />
-                    <ActionBtn icon={<UserPlus size={15} />} label="Assign Reviewer" disabled={!d || busy} onClick={() => toast.message("Reviewer assignment (demo).")} />
+                    <ActionBtn icon={<UserPlus size={15} />} label="Assign Reviewer" disabled={!d || busy} onClick={() => setAssignOpen(true)} />
                   </>
                 ) : (
                   <>
@@ -206,12 +289,15 @@ export function ClarificationsView({ side, entityId, title, subtitle }: { side: 
 
             {d && (
               <Card className="p-4">
-                <div className="mb-2 text-sm font-semibold text-text1">Audit Trail</div>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-text1">Audit Trail</span>
+                  <button onClick={() => setAuditOpen(true)} className="text-xs font-semibold text-primary hover:underline">View full audit trail →</button>
+                </div>
                 <div className="space-y-2.5">
-                  {d.audit.map((a, i) => (
+                  {d.audit.slice(0, 5).map((a, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs">
-                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: a.label.includes("responded") || a.label.includes("acknowledged") || a.label.includes("resubmit") ? "#16A34A" : a.label.includes("follow") || a.label.includes("escalat") ? "#EA8A00" : "#2563EB" }} />
-                      <div><div className="text-text1">{a.label}</div><div className="text-text3">{a.actor_name} · {relativeTime(a.created_at)}</div></div>
+                      <span className="mt-1 h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: a.label.includes("responded") || a.label.includes("acknowledged") || a.label.includes("resubmit") ? "rgb(var(--success))" : a.label.includes("follow") || a.label.includes("escalat") ? "rgb(var(--warning))" : "rgb(var(--primary))" }} />
+                      <div><div className="text-text1">{a.label}</div><div className="text-text3">{a.actor_name}, {relativeTime(a.created_at)}</div></div>
                     </div>
                   ))}
                 </div>
@@ -220,12 +306,61 @@ export function ClarificationsView({ side, entityId, title, subtitle }: { side: 
           </div>
         </div>
       </PageBody>
+
+      {/* CLR-13 assign reviewer */}
+      <Modal open={assignOpen} onClose={() => setAssignOpen(false)} title="Assign Reviewer"
+        footer={<Button variant="secondary" onClick={() => setAssignOpen(false)}>Close</Button>}>
+        <p className="text-sm text-text2">Assign this case to a DGHR reviewer/analyst.</p>
+        <div className="space-y-1.5">
+          {(reviewers.data ?? []).map((r) => (
+            <button key={r.id} onClick={() => assignReviewer(r.id)} className="flex w-full items-center justify-between rounded-lg border border-border px-3 py-2 text-left text-sm hover:bg-page">
+              <span className="font-medium text-text1">{r.name}</span>
+              <span className="text-xs text-text3">{r.role.replace("dghr_", "")}</span>
+            </button>
+          ))}
+          {reviewers.isLoading && <div className="text-xs text-text3">Loading reviewers…</div>}
+        </div>
+      </Modal>
+
+      {/* CLR-15 full audit modal (MD-15) */}
+      {d && (
+        <Modal open={auditOpen} onClose={() => setAuditOpen(false)} title={`Audit Trail: ${d.ref}`}
+          footer={<Button variant="secondary" onClick={() => setAuditOpen(false)}>Close</Button>}>
+          <div className="space-y-2.5">
+            {d.audit.map((a, i) => (
+              <div key={i} className="flex items-start gap-2 text-sm">
+                <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                <div><div className="text-text1">{a.label}</div><div className="text-xs text-text3">{a.actor_name}, {relativeTime(a.created_at)}</div></div>
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
+
+      <Modal
+        open={queryOpen}
+        onClose={closeQuery}
+        title="Raise a Query to DGHR"
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeQuery} disabled={queryBusy}>Cancel</Button>
+            <Button onClick={raiseQuery} disabled={queryBusy}>{queryBusy ? "Sending…" : "Send to DGHR"}</Button>
+          </>
+        }
+      >
+        <Field label="Related data package">
+          <TextInput value={queryPkg} onChange={(e) => setQueryPkg(e.target.value)} />
+        </Field>
+        <Field label="Your query">
+          <TextArea rows={4} value={queryText} onChange={(e) => setQueryText(e.target.value)} placeholder="Describe what you need clarified from DGHR…" />
+        </Field>
+      </Modal>
     </>
   );
 }
 
 function ActionBtn({ icon, label, onClick, disabled, tone }: { icon: React.ReactNode; label: string; onClick: () => void; disabled?: boolean; tone?: "success" | "warning" }) {
-  const color = tone === "success" ? "#16A34A" : tone === "warning" ? "#EA8A00" : "#475569";
+  const color = tone === "success" ? "rgb(var(--success))" : tone === "warning" ? "rgb(var(--warning))" : "rgb(var(--text-2))";
   return (
     <button onClick={onClick} disabled={disabled} className="flex w-full items-center gap-2.5 rounded-lg border border-border p-2.5 text-left text-sm hover:bg-page disabled:opacity-50">
       <span style={{ color }}>{icon}</span><span className="flex-1 font-medium text-text1">{label}</span><ChevronRight size={14} className="text-text3" />

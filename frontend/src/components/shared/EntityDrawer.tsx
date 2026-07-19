@@ -51,12 +51,12 @@ export function EntityDrawer({
       ) : (
         <div className="space-y-5">
           {/* header */}
-          <div className="rounded-card border border-border bg-white p-4">
+          <div className="rounded-card border border-border bg-card p-4">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-lg font-bold text-text1">{data.name}</div>
                 <div className="text-xs text-text3">
-                  {data.code} · {data.wave} · Reviewer: {data.reviewer ?? "Unassigned"}
+                  {data.code}, {data.wave}, Reviewer: {data.reviewer ?? "Unassigned"}
                 </div>
               </div>
               <StatusBadge value={data.overdue ? "overdue" : data.status} label={data.overdue ? "Overdue" : data.status_label} />
@@ -68,11 +68,11 @@ export function EntityDrawer({
               </div>
               <div>
                 <div className="text-xs text-text3">Quality Score</div>
-                <div className="font-semibold text-text1">{data.quality_score ?? "–"}</div>
+                <div className="font-semibold text-text1">{data.quality_score ?? "—"}</div>
               </div>
               <div>
                 <div className="text-xs text-text3">Due date</div>
-                <div className="font-semibold text-text1">{data.due_date ?? "–"}</div>
+                <div className="font-semibold text-text1">{data.due_date ?? "—"}</div>
               </div>
               <div>
                 <div className="text-xs text-text3">Forecasting</div>
@@ -89,7 +89,7 @@ export function EntityDrawer({
             <div className="mb-2 text-sm font-semibold text-text1">Package progress</div>
             <div className="space-y-2">
               {data.packages.map((p) => (
-                <div key={p.key} className="rounded-lg border border-border bg-white px-3 py-2">
+                <div key={p.key} className="rounded-lg border border-border bg-card px-3 py-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-text1">{p.name}</span>
                     <StatusBadge value={p.status} />
@@ -106,7 +106,7 @@ export function EntityDrawer({
               <div className="mb-2 text-sm font-semibold text-text1">Open cases</div>
               <div className="space-y-1.5">
                 {data.open_cases.map((c) => (
-                  <div key={c.ref} className="flex items-center justify-between rounded-lg border border-border bg-white px-3 py-2 text-sm">
+                  <div key={c.ref} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2 text-sm">
                     <span className="font-mono text-primary">{c.ref}</span>
                     <div className="flex items-center gap-2">
                       <StatusBadge value={c.priority.toLowerCase()} label={c.priority} />
@@ -129,7 +129,7 @@ export function EntityDrawer({
                   <div>
                     <div className="text-text1">{a.label}</div>
                     <div className="text-xs text-text3">
-                      {a.actor_name} · {relativeTime(a.created_at)}
+                      {a.actor_name}, {relativeTime(a.created_at)}
                     </div>
                   </div>
                 </div>

@@ -23,8 +23,13 @@ def bump_last_updated(db: Session) -> datetime:
 
 
 def add_audit(db: Session, *, label: str, actor_name: str,
-              entity_id: int | None = None, case_id: int | None = None) -> m.AuditEvent:
-    ev = m.AuditEvent(label=label, actor_name=actor_name, entity_id=entity_id, case_id=case_id)
+              entity_id: int | None = None, case_id: int | None = None,
+              submission_id: int | None = None, verb: str = "") -> m.AuditEvent:
+    """`verb` and `submission_id` are what make an audit row queryable. Without them everything was
+    baked into an English sentence in a String(200) — unfilterable, and unattached to the thing it
+    happened to, so no submission could show its own history."""
+    ev = m.AuditEvent(label=label, actor_name=actor_name, entity_id=entity_id, case_id=case_id,
+                      submission_id=submission_id, verb=verb)
     db.add(ev)
     return ev
 

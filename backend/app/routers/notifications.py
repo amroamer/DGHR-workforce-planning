@@ -4,12 +4,22 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app import models as m
+from app.services import cycles
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"])
+
+
+def _audience_scope(q, entity_id: int | None):
+    """Scope notifications to one entity, INCLUDING entity-wide broadcasts (entity_id IS NULL)
+    such as the 'DGHR Announcement' from publishing the request package (SPEC §11)."""
+    if entity_id is not None:
+        return q.filter(or_(m.Notification.entity_id == entity_id, m.Notification.entity_id.is_(None)))
+    return q
 
 
 def _serialize(n: m.Notification) -> dict:
@@ -26,9 +36,7 @@ def list_notifications(
     entity_id: int | None = Query(None),
     db: Session = Depends(get_db),
 ) -> dict:
-    q = db.query(m.Notification).filter(m.Notification.audience == audience)
-    if entity_id is not None:
-        q = q.filter(m.Notification.entity_id == entity_id)
+    q = _audience_scope(db.query(m.Notification).filter(m.Notification.audience == audience), entity_id)
     items = q.order_by(m.Notification.created_at.desc()).all()
     unread = sum(1 for n in items if not n.read)
     return {"items": [_serialize(n) for n in items], "unread": unread}
@@ -42,9 +50,7 @@ class MarkReadBody(BaseModel):
 
 @router.post("/mark-read")
 def mark_read(body: MarkReadBody, db: Session = Depends(get_db)) -> dict:
-    q = db.query(m.Notification).filter(m.Notification.audience == body.audience)
-    if body.entity_id is not None:
-        q = q.filter(m.Notification.entity_id == body.entity_id)
+    q = _audience_scope(db.query(m.Notification).filter(m.Notification.audience == body.audience), body.entity_id)
     if body.ids:
         q = q.filter(m.Notification.id.in_(body.ids))
     updated = 0
@@ -63,9 +69,12 @@ def poll(
     since: str | None = Query(None),
     db: Session = Depends(get_db),
 ) -> dict:
-    q = db.query(m.Notification).filter(m.Notification.audience == audience)
-    if entity_id is not None:
-        q = q.filter(m.Notification.entity_id == entity_id)
+    # The poll is the app's heartbeat (every client, every 4s), so it's where the deadline-driven
+    # jobs fire — the stack has no scheduler. Both are idempotent and commit only on a change:
+    # auto-close shuts an overdue window; the reminder engine chases laggards at 7/3/1 days out.
+    cycles.sweep_auto_close(db)
+    cycles.sweep_reminders(db)
+    q = _audience_scope(db.query(m.Notification).filter(m.Notification.audience == audience), entity_id)
     if since:
         try:
             since_dt = datetime.fromisoformat(since)
@@ -73,9 +82,10 @@ def poll(
         except ValueError:
             pass
     new_items = q.order_by(m.Notification.created_at.desc()).all()
-    unread_total = db.query(m.Notification).filter(
-        m.Notification.audience == audience, m.Notification.read.is_(False),
-        *([m.Notification.entity_id == entity_id] if entity_id is not None else []),
+    unread_total = _audience_scope(
+        db.query(m.Notification).filter(
+            m.Notification.audience == audience, m.Notification.read.is_(False)),
+        entity_id,
     ).count()
     return {
         "new": [_serialize(n) for n in new_items],

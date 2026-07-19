@@ -1,37 +1,64 @@
-import { test, expect } from "@playwright/test";
-import { gotoAs, resetDemo } from "./helpers";
+import { test, expect, type Page } from "@playwright/test";
+import { gotoAs, resetDemo, API } from "./helpers";
 
-// Pixel-diff baseline of every screen + key overlays. First run writes the baselines;
-// later runs FAIL if the rendered layout changes (spacing, clipping, overlap, colour…).
-// Dynamic bits (the "Last updated: …" time) are masked to avoid false diffs.
+// Pixel-diff baseline of the CURRENT app's screens. First run (with --update-snapshots) writes the
+// baselines; later runs FAIL if a screen's rendered layout changes (spacing, clipping, overlap,
+// colour…). The "Last updated: …" clock is masked; small relative-date shifts are absorbed by the
+// config's maxDiffPixelRatio tolerance. Rewritten from the retired Layer-A screen list.
 
-const SCREENS: { path: string; persona: "dghr-admin" | "entity-dm" | "entity-dha"; name: string }[] = [
-  { path: "/dghr/command-center", persona: "dghr-admin", name: "cc" },
-  { path: "/dghr/data-collection", persona: "dghr-admin", name: "data-collection" },
-  { path: "/dghr/submissions", persona: "dghr-admin", name: "tracker" },
-  { path: "/dghr/data-quality", persona: "dghr-admin", name: "data-quality" },
-  { path: "/dghr/forecasting-readiness", persona: "dghr-admin", name: "readiness" },
-  { path: "/dghr/clarifications", persona: "dghr-admin", name: "clarifications-dghr" },
-  { path: "/entity/home", persona: "entity-dm", name: "entity-home" },
-  { path: "/entity/my-submissions", persona: "entity-dm", name: "my-submissions" },
-  { path: "/entity/org-structure", persona: "entity-dm", name: "org-structure" },
-  { path: "/entity/workforce", persona: "entity-dm", name: "workforce" },
-  { path: "/entity/workload", persona: "entity-dm", name: "workload" },
-  { path: "/entity/demand-drivers", persona: "entity-dm", name: "demand-drivers" },
-  { path: "/entity/clarifications", persona: "entity-dm", name: "clarifications-entity" },
-  { path: "/entity/workforce", persona: "entity-dha", name: "workforce-empty" },
+const STATIC: { path: string; persona: "dghr-admin" | "entity-dm"; name: string }[] = [
+  { path: "/dghr/hc-overview", persona: "dghr-admin", name: "hc-overview" },
+  { path: "/dghr/demand-analysis", persona: "dghr-admin", name: "demand-analysis" },
+  { path: "/dghr/supply-analysis", persona: "dghr-admin", name: "supply-analysis" },
+  { path: "/dghr/government", persona: "dghr-admin", name: "government" },
+  { path: "/dghr/method", persona: "dghr-admin", name: "method" },
+  { path: "/dghr/alerts", persona: "dghr-admin", name: "alerts-smart-flags" },
+  { path: "/dghr/reports", persona: "dghr-admin", name: "gov-reports" },
+  { path: "/dghr/admin", persona: "dghr-admin", name: "cycle-admin" },
+  { path: "/dghr/cycles", persona: "dghr-admin", name: "cycle-history" },
+  { path: "/dghr/knowledge", persona: "dghr-admin", name: "knowledge" },
+  { path: "/entity/departments", persona: "entity-dm", name: "departments" },
+  { path: "/entity/submissions", persona: "entity-dm", name: "my-submissions" },
+  { path: "/entity/reports", persona: "entity-dm", name: "entity-reports" },
+  { path: "/entity/documents", persona: "entity-dm", name: "documents" },
+  { path: "/entity/calendar", persona: "entity-dm", name: "programme-wave" },
+  { path: "/entity/help", persona: "entity-dm", name: "help" },
 ];
 
-test.describe("SNAPSHOTS · per-screen visual baseline", () => {
+async function shot(page: Page, name: string) {
+  await expect(page.locator("main")).toBeVisible();
+  await page.waitForTimeout(1300); // charts/tables settle + KPI count-up tween (≤900ms) finishes
+  await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: true, mask: [page.getByText(/Last updated:/)] });
+}
+
+test.describe("SNAPSHOTS · per-screen visual baseline (current app)", () => {
   test.beforeAll(async () => { await resetDemo(); });
 
-  for (const s of SCREENS) {
-    test(`${s.name}`, async ({ page }) => {
+  for (const s of STATIC) {
+    test(s.name, async ({ page }) => {
       await gotoAs(page, s.path, s.persona);
-      await expect(page.locator("main")).toBeVisible();
-      await page.waitForTimeout(700); // charts/tables settle
-      const mask = [page.getByText(/Last updated:/)];
-      await expect(page).toHaveScreenshot(`${s.name}.png`, { fullPage: true, mask });
+      await shot(page, s.name);
     });
   }
+
+  // Dynamic screens: resolve a stable id from the deterministic seed, snapshot under a fixed name.
+  test("entity-drilldown", async ({ page }) => {
+    const j = await (await fetch(`${API}/api/planning/dghr/entities`)).json();
+    const id = (j.entities.find((e: { received: number }) => e.received > 0) ?? j.entities[0]).entity_id;
+    await gotoAs(page, `/dghr/gov-entity/${id}`, "dghr-admin");
+    await shot(page, "entity-drilldown");
+  });
+
+  test("submission-review", async ({ page }) => {
+    const j = await (await fetch(`${API}/api/planning/dghr/alerts`)).json();
+    await gotoAs(page, `/dghr/gov-submission/${j.alerts[0].submission_id}`, "dghr-admin");
+    await shot(page, "submission-review");
+  });
+
+  test("submission-form", async ({ page }) => {
+    const j = await (await fetch(`${API}/api/planning/entities/3/submissions`)).json();
+    const row = j.rows.find((r: { status: string }) => r.status === "draft") ?? j.rows[0];
+    await gotoAs(page, `/entity/departments/${row.department_id}`, "entity-dm");
+    await shot(page, "submission-form");
+  });
 });

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.seed import run_seed
+from app.seed_clean import seed_clean
 from app.checks import run_checks
 from app.services import cases as cases_svc
 from app.services import workflow
@@ -17,9 +17,9 @@ router = APIRouter(prefix="/api/demo", tags=["demo"])
 
 @router.post("/reset")
 def reset() -> dict:
-    """Re-run the canonical seed (SPEC §14). Idempotent."""
-    run_seed()
-    return {"ok": True, "message": "Demo data reset to canonical §7 scenario."}
+    """Reset to the clean Planning scenario (entities + departments + typesets only)."""
+    r = seed_clean()
+    return {"ok": True, "message": f"Reset: {r['entities']} entities, {r['departments']} departments, no seeded metrics."}
 
 
 @router.post("/simulate-submissions")

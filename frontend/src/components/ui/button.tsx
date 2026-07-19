@@ -2,17 +2,18 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
-// Button hierarchy (SPEC §4.5): primary solid blue / secondary white-border / tertiary blue link.
+// Button hierarchy (SPEC §4.5 / §9): primary solid blue / secondary bordered / tertiary link.
+// Motion (§16): 1px press via scale-98, fast token timing; focus uses the global standardized ring.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-btn text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-btn text-sm font-semibold transition-[transform,background-color,border-color,box-shadow,color] duration-fast ease-standard active:scale-[.98] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 disabled:active:scale-100",
   {
     variants: {
       variant: {
-        primary: "bg-primary text-white hover:bg-primary-hover shadow-sm",
-        secondary: "bg-white border border-border text-text1 hover:bg-page",
-        ghost: "text-text2 hover:bg-page",
-        link: "text-primary hover:underline p-0 h-auto font-semibold",
-        danger: "bg-danger text-white hover:opacity-90",
+        primary: "bg-primary text-white shadow-sm hover:bg-primary-hover hover:shadow-card",
+        secondary: "border border-border bg-card text-text1 hover:border-border-strong hover:bg-surface2",
+        ghost: "text-text2 hover:bg-surface2 hover:text-text1",
+        link: "h-auto p-0 font-semibold text-primary hover:underline active:scale-100",
+        danger: "bg-danger text-white hover:brightness-95",
       },
       size: {
         md: "h-10 px-4",

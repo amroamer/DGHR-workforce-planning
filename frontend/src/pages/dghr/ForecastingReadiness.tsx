@@ -24,11 +24,15 @@ const BLOCK_ICONS: Record<string, React.ReactNode> = {
   future_drivers: <TrendingDown size={15} />, org_issues: <Boxes size={15} />, other: <AlertCircle size={15} />,
 };
 
+/** Decorative motif, NOT a sparkline. It used to render an invented 7-point rising series beside
+ *  real API-driven FTE figures — identical on every card — which read as those metrics' history.
+ *  There is no trend series behind these numbers, so it must not draw one. */
 function MiniBars({ color }: { color: string }) {
-  const h = [40, 62, 50, 78, 90, 70, 100];
   return (
-    <div className="flex items-end gap-0.5" style={{ height: 28 }}>
-      {h.map((v, i) => <span key={i} className="w-1.5 rounded-sm" style={{ height: `${v}%`, backgroundColor: color, opacity: 0.85 }} />)}
+    <div className="flex items-end gap-0.5" style={{ height: 28 }} aria-hidden>
+      {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+        <span key={i} className="w-1.5 rounded-sm" style={{ height: "35%", backgroundColor: color, opacity: 0.18 }} />
+      ))}
     </div>
   );
 }
@@ -58,6 +62,12 @@ export function ForecastingReadiness() {
   const k = data?.kpis;
   const v = data?.vision_preview;
   const num = (key: string) => v?.metrics[key]?.value_numeric ?? 0;
+  // Growth/reduction are reported as signed magnitudes; the split bar compares their sizes.
+  const growthAbs = Math.abs(num("growth"));
+  const reductionAbs = Math.abs(num("reduction"));
+  const growthShare = growthAbs + reductionAbs > 0
+    ? Math.round((growthAbs / (growthAbs + reductionAbs)) * 100)
+    : 0;
 
   return (
     <>
@@ -84,11 +94,11 @@ export function ForecastingReadiness() {
             </div>
             <div className="overflow-x-auto p-3">
               <table className="w-full text-left text-sm">
-                <thead><tr className="border-b border-[#EEF2F7] text-[11px] uppercase text-text3">
+                <thead><tr className="border-b border-border text-[11px] uppercase text-text3">
                   <th className="px-3 py-2.5 font-semibold">Entity</th><th className="px-3 py-2.5 font-semibold">Completeness</th><th className="px-3 py-2.5 text-center font-semibold">Quality</th><th className="px-3 py-2.5 font-semibold">Forecasting</th><th className="px-3 py-2.5 font-semibold">Blocking Reasons</th><th /></tr></thead>
                 <tbody>
                   {(data?.entity_readiness.rows ?? []).map((r) => (
-                    <tr key={r.id} className="border-b border-[#EEF2F7] hover:bg-[#F8FAFC]">
+                    <tr key={r.id} className="border-b border-border hover:bg-page">
                       <td className="px-3 py-2.5"><div className="font-medium text-text1">{r.name}</div><div className="text-[11px] text-text3">{r.code}</div></td>
                       <td className="px-3 py-2.5 w-32"><div className="mb-1 text-xs font-semibold text-text2">{r.completeness}%</div><ProgressBar value={r.completeness} /></td>
                       <td className="px-3 py-2.5 text-center">{r.quality_score != null ? <span className="rounded-md bg-page px-2 py-0.5 text-xs font-semibold text-text1">{r.quality_score}</span> : <span className="text-text3">—</span>}</td>
@@ -138,14 +148,21 @@ export function ForecastingReadiness() {
           </VisionCard>
           <VisionCard>
             <div><div className="flex items-baseline gap-2 text-2xl font-bold"><span className="text-success">+{fmt(num("growth"))}</span><span className="text-danger">{fmt(num("reduction"))}</span></div><div className="text-xs font-semibold text-text2">Growth vs Reduction</div>
-              <div className="mt-2 flex h-2 overflow-hidden rounded-full"><span className="bg-success" style={{ width: "78%" }} /><span className="bg-danger" style={{ width: "22%" }} /></div>
+              {/* Split derived from the two figures above it — hardcoded 78/22 widths contradicted
+                  their own labels for any data where growth:reduction wasn't 78:22. */}
+              <div className="mt-2 flex h-2 overflow-hidden rounded-full bg-page">
+                <span className="bg-success" style={{ width: `${growthShare}%` }} />
+                <span className="bg-danger" style={{ width: `${100 - growthShare}%` }} />
+              </div>
             </div>
           </VisionCard>
         </div>
 
         <div className="mt-4 grid grid-cols-12 gap-4">
           <VisionCard title="Skills Gaps (Top 5)" className="col-span-4">
-            <HBarChart data={(v?.skills ?? []).map((s) => ({ name: s.skill, value: s.gap_fte }))} height={200} max={140} />
+            {/* No literal max: it was an FTE-unit ceiling that silently clipped any gap above it. */}
+            <HBarChart data={(v?.skills ?? []).map((s) => ({ name: s.skill, value: s.gap_fte }))} height={200}
+              max={Math.max(1, ...(v?.skills ?? []).map((s) => s.gap_fte))} />
           </VisionCard>
           <VisionCard title="Scenario Comparison" className="col-span-5">
             <GroupedBarChart

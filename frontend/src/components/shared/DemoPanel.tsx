@@ -32,24 +32,35 @@ export function DemoPanel() {
     enabled: open,
   });
 
-  const run = async (fn: () => Promise<unknown>, msg: string) => {
+  // `msg` may be a function so a toast can report what actually happened rather than what we hoped
+  // would happen — the simulate action asks for 3 entities but the API returns however many were
+  // genuinely eligible.
+  const run = async <T,>(fn: () => Promise<T>, msg: string | ((r: T) => string)) => {
     setBusy(true);
-    try { await fn(); qc.invalidateQueries(); toast.success(msg); }
+    try {
+      const r = await fn();
+      qc.invalidateQueries();
+      toast.success(typeof msg === "function" ? msg(r) : msg);
+    }
     catch { toast.error("Action failed."); }
     finally { setBusy(false); }
   };
-  const reset = () => run(() => api.resetDemo(), "Demo data reset to the canonical scenario.");
-  const simulate = () => run(async () => {
-    const r = await api.simulateSubmissions();
-    return r;
-  }, "3 entities are submitting — watch the dashboards move.");
-  const anomaly = () => run(() => api.triggerAnomaly(), "Fresh AI anomaly triggered.");
+  const reset = () => {
+    // MD-21: warn before the destructive wipe-and-reseed.
+    if (!window.confirm("Reset ALL demo data to the canonical scenario? This wipes any changes you've made.")) return;
+    return run(() => api.resetDemo(), "Demo data reset to the canonical scenario.");
+  };
+  const simulate = () => run(api.simulateSubmissions, (r) =>
+    r.submitted.length === 0
+      ? "No entity had an eligible package left to submit."
+      : `${r.submitted.length} entit${r.submitted.length === 1 ? "y is" : "ies are"} submitting, watch the dashboards move.`);
+  const anomaly = () => run(() => api.triggerAnomaly(), "Fresh Smart anomaly triggered.");
   const advance = () => run(() => api.advanceTrend(), "Collection progress trend advanced.");
 
   if (!open) return null;
 
   return (
-    <div className="fixed right-0 top-0 z-50 flex h-full w-80 flex-col border-l border-border bg-white shadow-2xl">
+    <div className="fixed right-0 top-0 z-50 flex h-full w-80 flex-col border-l border-border bg-card shadow-2xl">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <span className="text-sm font-bold text-text1">Demo Control Panel</span>
         <button onClick={() => setOpen(false)} className="text-text3 hover:text-text1">
@@ -67,19 +78,19 @@ export function DemoPanel() {
             <span className="flex items-center gap-1.5">
               <span
                 className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: health.data?.status === "ok" ? "#16A34A" : "#E11D48" }}
+                style={{ backgroundColor: health.data?.status === "ok" ? "rgb(var(--success))" : "rgb(var(--danger))" }}
               />
               <span className="text-xs text-text2">{health.data?.status ?? "…"}</span>
             </span>
           </div>
           <div className="mt-2 flex items-center justify-between">
-            <span className="text-text2">Seed consistency</span>
+            <span className="text-text2" title="Whether the DB still matches the pristine canonical demo. Expected to read 'modified' once you author real data.">Demo baseline</span>
             <span className="flex items-center gap-1.5">
               <span
                 className="h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: seed.data?.passed ? "#16A34A" : "#EA8A00" }}
+                style={{ backgroundColor: seed.data?.passed ? "rgb(var(--success))" : "rgb(var(--text-3))" }}
               />
-              <span className="text-xs text-text2">{seed.isFetching ? "checking…" : seed.data?.passed ? "passing" : "—"}</span>
+              <span className="text-xs text-text2">{seed.isFetching ? "checking…" : seed.data?.passed ? "pristine" : "modified"}</span>
             </span>
           </div>
         </div>
@@ -92,7 +103,7 @@ export function DemoPanel() {
             <Activity size={16} /> Simulate 3 Submissions
           </Button>
           <Button variant="secondary" className="w-full justify-start" onClick={anomaly} disabled={busy}>
-            <Activity size={16} /> Trigger AI Anomaly
+            <Activity size={16} /> Trigger Smart Anomaly
           </Button>
           <Button variant="secondary" className="w-full justify-start" onClick={advance} disabled={busy}>
             <Activity size={16} /> Advance Trend

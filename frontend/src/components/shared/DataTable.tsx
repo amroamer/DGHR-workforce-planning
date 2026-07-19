@@ -61,7 +61,7 @@ export function DataTable<T>({
       <div className="overflow-x-auto">
         <table className="w-full border-collapse text-left">
           <thead className="sticky top-0 z-[1] bg-card">
-            <tr className="border-b border-[#EEF2F7]">
+            <tr className="border-b border-border">
               {selectable && (
                 <th className="w-10 px-4 py-3">
                   <input type="checkbox" checked={!!allSelected} onChange={toggleAll} className="accent-primary" />
@@ -110,13 +110,21 @@ export function DataTable<T>({
             ) : (
               rows.map((row) => {
                 const k = rowKey(row);
+                const isSel = !!selected?.has(k);
                 return (
-                  <tr key={k} className="border-b border-[#EEF2F7] hover:bg-[#F8FAFC]">
+                  <tr
+                    key={k}
+                    className={cn(
+                      "border-b border-border transition-colors duration-fast hover:bg-surface2",
+                      // Thin left accent + tint for a selected row (§12).
+                      isSel && "bg-primary/[0.06] shadow-[inset_2px_0_0_rgb(var(--primary))]",
+                    )}
+                  >
                     {selectable && (
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5">
                         <input
                           type="checkbox"
-                          checked={!!selected?.has(k)}
+                          checked={isSel}
                           onChange={() => toggleOne(k)}
                           className="accent-primary"
                         />
@@ -126,12 +134,12 @@ export function DataTable<T>({
                       <td
                         key={c.key}
                         style={{ textAlign: c.align ?? "left" }}
-                        className="px-3 py-3 text-sm text-text1"
+                        className={cn("px-3 py-3.5 text-sm text-text1", c.align === "right" && "nums")}
                       >
                         {c.render(row)}
                       </td>
                     ))}
-                    {rowActions && <td className="px-3 py-3 text-right">{rowActions(row)}</td>}
+                    {rowActions && <td className="px-3 py-3.5 text-right">{rowActions(row)}</td>}
                   </tr>
                 );
               })

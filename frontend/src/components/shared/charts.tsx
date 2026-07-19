@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   Cell,
+  LabelList,
   Line,
   LineChart,
   Pie,
@@ -13,6 +14,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useChartTheme, useAnimateOnce, tooltipProps } from "@/lib/useChartTheme";
 
 // ─────────────── DonutChart (center label) ───────────────
 export function DonutChart({
@@ -26,11 +28,13 @@ export function DonutChart({
   centerLabel?: string;
   size?: number;
 }) {
+  const c = useChartTheme();
+  const anim = useAnimateOnce();
   return (
     <div className="relative" style={{ width: size, height: size }}>
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
-          <Pie isAnimationActive={false}
+          <Pie isAnimationActive={anim} animationDuration={650} animationEasing="ease-out"
             data={data}
             dataKey="value"
             innerRadius={size * 0.32}
@@ -42,11 +46,11 @@ export function DonutChart({
               <Cell key={i} fill={d.color} />
             ))}
           </Pie>
-          <Tooltip />
+          <Tooltip {...tooltipProps(c)} />
         </PieChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <div className="text-2xl font-bold text-text1">{centerValue}</div>
+        <div className="nums text-2xl font-bold text-text1">{centerValue}</div>
         {centerLabel && <div className="text-xs text-text3">{centerLabel}</div>}
       </div>
     </div>
@@ -61,25 +65,39 @@ export function TrendLine({
   data: { label: string; value: number }[];
   height?: number;
 }) {
+  const c = useChartTheme();
+  const anim = useAnimateOnce(750);
+  const lastIdx = data.length - 1;
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+      <AreaChart data={data} margin={{ top: 20, right: 26, left: -18, bottom: 0 }}>
         <defs>
           <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#2563EB" stopOpacity={0.18} />
-            <stop offset="100%" stopColor="#2563EB" stopOpacity={0} />
+            <stop offset="0%" stopColor={c.primary} stopOpacity={0.18} />
+            <stop offset="100%" stopColor={c.primary} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+        <XAxis dataKey="label" tick={{ fontSize: 11, fill: c.axis }} axisLine={false} tickLine={false} />
         <YAxis
-          tick={{ fontSize: 11, fill: "#94A3B8" }}
+          tick={{ fontSize: 11, fill: c.axis }}
           axisLine={false}
           tickLine={false}
           domain={[0, 100]}
           tickFormatter={(v) => `${v}%`}
         />
-        <Tooltip />
-        <Area type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={2} fill="url(#trendFill)" dot={{ r: 3, fill: "#2563EB" }} isAnimationActive={false} />
+        <Tooltip {...tooltipProps(c)} />
+        <Area type="monotone" dataKey="value" stroke={c.primary} strokeWidth={2} fill="url(#trendFill)" dot={{ r: 3, fill: c.primary }} isAnimationActive={anim} animationDuration={750} animationEasing="ease-out">
+          {/* Final-value emphasis (§13) — label the last point only. */}
+          <LabelList
+            dataKey="value"
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            content={(p: any) =>
+              p && p.index === lastIdx && p.value != null ? (
+                <text x={p.x} y={(p.y ?? 0) - 8} textAnchor="middle" fontSize={13} fontWeight={700} fill={c.primary}>{`${p.value}%`}</text>
+              ) : null
+            }
+          />
+        </Area>
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -90,17 +108,18 @@ export function Sparkline({
   data,
   width = 90,
   height = 24,
-  color = "#2563EB",
+  color,
 }: {
   data: number[];
   width?: number;
   height?: number;
   color?: string;
 }) {
+  const c = useChartTheme();
   const points = data.map((v, i) => ({ i, v }));
   return (
     <LineChart width={width} height={height} data={points} margin={{ top: 3, right: 2, left: 2, bottom: 3 }}>
-      <Line type="monotone" dataKey="v" stroke={color} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+      <Line type="monotone" dataKey="v" stroke={color ?? c.primary} strokeWidth={1.5} dot={false} isAnimationActive={false} />
     </LineChart>
   );
 }
@@ -115,6 +134,8 @@ export function HBarChart({
   height?: number;
   max?: number;
 }) {
+  const c = useChartTheme();
+  const anim = useAnimateOnce();
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ top: 4, right: 28, left: 8, bottom: 4 }}>
@@ -123,13 +144,13 @@ export function HBarChart({
           type="category"
           dataKey="name"
           width={140}
-          tick={{ fontSize: 12, fill: "#475569" }}
+          tick={{ fontSize: 12, fill: c.axis }}
           axisLine={false}
           tickLine={false}
         />
-        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={14} isAnimationActive={false} label={{ position: "right", fontSize: 12, fill: "#475569" }}>
+        <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={16} isAnimationActive={anim} animationDuration={650} animationEasing="ease-out" label={{ position: "right", fontSize: 12, fill: c.axis }}>
           {data.map((d, i) => (
-            <Cell key={i} fill={d.highlight ? "#2563EB" : "#16A34A"} />
+            <Cell key={i} fill={d.highlight ? c.primary : c.success} />
           ))}
         </Bar>
       </BarChart>
@@ -147,15 +168,20 @@ export function GroupedBarChart({
   series: { key: string; name: string; color: string }[];
   height?: number;
 }) {
+  const c = useChartTheme();
+  const anim = useAnimateOnce();
   return (
     <div>
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={data} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-          <XAxis dataKey="group" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-          <Tooltip />
+        <BarChart data={data} margin={{ top: 16, right: 8, left: -12, bottom: 0 }}>
+          <XAxis dataKey="group" tick={{ fontSize: 11, fill: c.axis }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: c.axis }} axisLine={false} tickLine={false} />
+          <Tooltip {...tooltipProps(c)} />
           {series.map((s) => (
-            <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.color} radius={[3, 3, 0, 0]} barSize={16} isAnimationActive={false} />
+            <Bar key={s.key} dataKey={s.key} name={s.name} fill={s.color} radius={[3, 3, 0, 0]} barSize={22} isAnimationActive={anim} animationDuration={650} animationEasing="ease-out">
+              {/* Clean value labels above each bar (§19.2/19.11). */}
+              <LabelList dataKey={s.key} position="top" fontSize={10} fontWeight={600} fill={c.axis} />
+            </Bar>
           ))}
         </BarChart>
       </ResponsiveContainer>

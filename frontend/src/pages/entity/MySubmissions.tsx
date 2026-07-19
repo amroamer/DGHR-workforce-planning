@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ProgressBar } from "@/components/shared/ProgressBar";
+import { THEAD_TR, TH, TROW, TD } from "@/components/ui/table";
 
 export function MySubmissions() {
   const { entityId } = useAudience();
@@ -26,25 +27,26 @@ export function MySubmissions() {
       <PageHeader title="My Submissions" subtitle="Your entity's data packages and their status." />
       <PageBody>
         <Card className="overflow-hidden">
-          <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-sm">
             <thead>
-              <tr className="border-b border-[#EEF2F7] text-[11px] uppercase text-text3">
-                <th className="px-5 py-3 font-semibold">Package</th>
-                <th className="px-3 py-3 font-semibold">Status</th>
-                <th className="px-3 py-3 font-semibold">Progress</th>
-                <th className="px-3 py-3 font-semibold">Last Updated</th>
-                <th className="px-3 py-3 font-semibold">Reviewer Comments</th>
-                <th className="px-5 py-3 text-right font-semibold">Action</th>
+              <tr className={THEAD_TR}>
+                <th className="px-5 py-2.5">Package</th>
+                <th className={TH}>Status</th>
+                <th className={TH}>Progress</th>
+                <th className={TH}>Last Updated</th>
+                <th className={TH}>Reviewer Comments</th>
+                <th className="px-5 py-2.5 text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {(data?.rows ?? []).map((r) => (
-                <tr key={r.key} className="border-b border-[#EEF2F7] hover:bg-[#F8FAFC]">
-                  <td className="px-5 py-3.5 font-semibold text-text1">{r.name}</td>
-                  <td className="px-3 py-3.5"><StatusBadge value={r.status} label={r.status_label} /></td>
-                  <td className="px-3 py-3.5 w-48"><div className="mb-1 text-xs font-semibold text-text2">{r.progress}%</div><ProgressBar value={r.progress} /></td>
-                  <td className="px-3 py-3.5 text-text2">{r.updated_at ? relativeTime(r.updated_at) : "—"}</td>
-                  <td className="px-3 py-3.5"><span className="inline-flex items-center gap-1.5 text-text2"><MessageSquare size={14} className="text-text3" /> {r.comments}</span></td>
+                <tr key={r.key} className={TROW}>
+                  <td className="px-5 py-3.5 text-sm font-semibold text-text1">{r.name}</td>
+                  <td className={TD}><StatusBadge value={r.status} label={r.status_label} /></td>
+                  <td className="w-48 px-3 py-3.5"><div className="nums mb-1.5 text-xs font-semibold text-text2">{r.progress}%</div><ProgressBar value={r.progress} /></td>
+                  <td className="px-3 py-3.5 text-sm text-text2">{r.updated_at ? relativeTime(r.updated_at) : "—"}</td>
+                  <td className="px-3 py-3.5 text-sm"><span className="inline-flex items-center gap-1.5 text-text2"><MessageSquare size={14} className="text-text3" /> {r.comments}</span></td>
                   <td className="px-5 py-3.5 text-right">
                     <Button size="sm" variant={r.action === "Continue" ? "primary" : "secondary"} onClick={() => navigate(`/entity/${r.route.replace("?tab=evidence", "")}`)}>{r.action}</Button>
                   </td>
@@ -52,6 +54,7 @@ export function MySubmissions() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       </PageBody>
     </>

@@ -2,30 +2,162 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens (SPEC §4.1) — canonical CSS custom properties. */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * DESIGN TOKENS — single source of truth for the whole visual system.
+ *
+ * Stored as space-separated RGB *channels* (not hex) so Tailwind can apply
+ * opacity modifiers through the `<alpha-value>` placeholder — e.g. `bg-page/60`
+ * resolves to `rgb(var(--page-bg) / 0.6)`. tailwind.config.ts references every
+ * channel token as `rgb(var(--token) / <alpha-value>)`. Runtime theming works by
+ * swapping these values under `:root[data-theme="dark"]`.
+ *
+ * Non-channel tokens (gradients, shadows, motion, raw hex for SVG) live at the
+ * bottom of each block and are consumed directly via `var()`.
+ *
+ * ── Layering model (§7 Cards / §5 Surfaces) ────────────────────────────────
+ *   page-bg   → the app canvas (behind everything)
+ *   card-bg   → Level 1/2 surface: primary + standard analytical cards
+ *   surface-2 → Level 3 surface: secondary / supporting cards, table zebra
+ *   surface-3 → elevated surface: menus, popovers, hovered cards
+ *   surface-inset → Level 4: read-only fields, formula strips, inset notes
+ * Renaming any existing token breaks ~40 consuming components — only ADD/refine.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --navy-900: #0b1b3b;
-  --navy-800: #13284f;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --page-bg: #f5f7fa;
-  --card-bg: #ffffff;
-  --border: #e6eaf2;
-  --text-1: #0f172a;
-  --text-2: #475569;
-  --text-3: #94a3b8;
-  --success: #16a34a;
-  --success-bg: #e8f7ee;
-  --warning: #ea8a00;
-  --warning-bg: #fef3e2;
-  --danger: #e11d48;
-  --danger-bg: #fdebec;
-  --info: #0ea5e9;
-  --info-bg: #e7f6fe;
-  --purple: #7c3aed;
-  --purple-bg: #f1eafe;
-  --teal: #0d9488;
-  --teal-bg: #e6f7f4;
+  /* Brand navy (sidebar + dark-header anchor) */
+  --navy-900: 11 27 59;
+  --navy-800: 19 40 79;
+
+  /* Semantic accents (§5.1) */
+  --primary: 37 99 235;
+  --primary-hover: 29 78 216;
+  --success: 21 128 61;
+  --success-bg: 232 247 238;
+  --warning: 180 83 9;
+  --warning-bg: 254 243 226;
+  --danger: 225 29 72;
+  --danger-bg: 253 235 236;
+  --info: 2 132 199; /* sky-600 — darkened from 14 165 233 for WCAG AA on white (§17) */
+  --info-bg: 231 246 254;
+  --purple: 124 58 237;
+  --purple-bg: 241 234 254;
+  --teal: 13 148 136;
+  --teal-bg: 230 247 244;
+
+  /* Surfaces (§5.2 — cool light grey-blue canvas, layered light surfaces) */
+  --page-bg: 244 247 251;
+  --card-bg: 255 255 255;
+  --surface-2: 240 243 249;
+  --surface-3: 255 255 255;
+  --surface-inset: 245 248 252;
+  --sidebar-bg: 11 27 59; /* navy stays the brand anchor in light too (§6.1) */
+
+  /* Borders */
+  --border: 228 233 241;
+  --border-strong: 210 217 229; /* selected / focused / active dividers */
+
+  /* Text ramp */
+  --text-1: 15 23 42;
+  --text-2: 71 85 105;
+  --text-3: 105 114 128;
+
+  /* Focus ring (§4 focus states) */
+  --focus-ring: 37 99 235;
+
+  /* ── Non-channel tokens (consumed via var(), not through <alpha-value>) ── */
+
+  /* Header band (§6.2 — soft white→blue-tint gradient, never a plain bar) */
+  --header-bg: linear-gradient(115deg, #ffffff 0%, #f3f6fd 55%, #eef3fe 100%);
+  --header-fg: 15 23 42; /* channels for alpha */
+
+  /* Elevation (§4.6 — soft, modern light shadows) */
+  --elev-1: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --elev-2: 0 2px 4px rgba(16, 24, 40, 0.05), 0 6px 16px rgba(16, 24, 40, 0.08);
+  --elev-3: 0 10px 30px rgba(16, 24, 40, 0.14), 0 3px 8px rgba(16, 24, 40, 0.08);
+
+  /* Chart palette (SVG can't read var(); useChartTheme mirrors these) */
+  --chart-axis: #5b6472;
+  --chart-grid: #e6eaf2;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-fg: #0f172a;
+  --scrollbar-thumb: #cbd5e1;
+
+  /* ── Spacing scale — canonical steps (mirrors the Tailwind scale used app-wide:
+   *    p-1/2/3/4/5/6/8/10 = 4/8/12/16/20/24/32/40px). Exposed as vars for any raw CSS. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --space-9: 48px;
+
+  /* ── Motion scale (§16) — durations + easings shared by CSS and Tailwind ── */
+  --dur-fast: 130ms;   /* button hover / small controls */
+  --dur-press: 90ms;   /* button press */
+  --dur-card: 160ms;   /* card hover lift */
+  --dur-tab: 180ms;    /* tab cross-fade */
+  --dur-page: 200ms;   /* page entry */
+  --dur-nav: 220ms;    /* active nav pill travel */
+  --dur-theme: 300ms;  /* theme colour transition */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);      /* decelerate, calm */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);    /* general purpose */
+}
+
+/* ─────────────── Dark theme — executive command-centre navy (§5.3) ─────────────── */
+:root[data-theme="dark"] {
+  --navy-900: 9 15 30;
+  --navy-800: 22 33 60;
+
+  --primary: 96 165 250;       /* brighter blue on dark (§5.3) */
+  --primary-hover: 129 184 255;
+  --success: 74 222 128;
+  --success-bg: 20 45 33;
+  --warning: 251 191 36;
+  --warning-bg: 55 41 18;
+  --danger: 251 113 133;
+  --danger-bg: 56 24 33;
+  --info: 56 189 248;
+  --info-bg: 15 42 58;
+  --purple: 167 139 250;
+  --purple-bg: 42 31 68;
+  --teal: 45 212 191;
+  --teal-bg: 15 45 42;
+
+  /* Layered navy surfaces — never pure black, never all one navy (§5.3) */
+  --page-bg: 10 17 34;         /* darkest — app canvas */
+  --card-bg: 20 29 51;         /* main card */
+  --surface-2: 25 35 60;       /* secondary / supporting */
+  --surface-3: 30 42 70;       /* elevated: menus, hover */
+  --surface-inset: 14 22 41;   /* inner panel / read-only / formula */
+  --sidebar-bg: 13 22 44;
+
+  --border: 38 50 79;
+  --border-strong: 55 70 104;
+
+  --text-1: 233 238 247;
+  --text-2: 162 176 199;
+  --text-3: 128 143 170;
+
+  --focus-ring: 96 165 250;
+
+  /* Navy→indigo, same hue family as the navy sidebar/canvas (was magenta, which clashed). */
+  --header-bg: linear-gradient(115deg, #0f1b3c 0%, #1a2b52 50%, #24386c 100%);
+  --header-fg: 237 240 248;
+  /* (chart-axis brightened below for dark-mode axis contrast — §13/§17) */
+
+  /* Dark elevation leans on depth, not soft light shadows (§4.6) */
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.30);
+  --elev-2: 0 4px 16px rgba(0, 0, 0, 0.38);
+  --elev-3: 0 14px 36px rgba(0, 0, 0, 0.48);
+
+  --chart-axis: #9aa9c6; /* brighter than #8b9ab5 for dark-mode axis contrast (§13) */
+  --chart-grid: #26324f;
+  --chart-tooltip-bg: #131b30;
+  --chart-tooltip-fg: #e9eef7;
+  --scrollbar-thumb: #33415c;
 }
 
 html,
@@ -37,30 +169,99 @@ body,
 body {
   margin: 0;
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: var(--page-bg);
-  color: var(--text-1);
+  background: rgb(var(--page-bg));
+  color: rgb(var(--text-1));
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* Subtle page entrance (SPEC §5 polish) */
+/* Tabular figures for data-heavy alignment (§4.2/4.3) — opt in via `.nums`. */
+.nums {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "cv01" 1;
+}
+
+/* Standardised <select> chrome (§10) — one custom chevron, one arrow size, consistent
+ * right padding, native arrow removed. Defined after @tailwind utilities so its
+ * padding-right wins over any px-* on the element. Colours come from the tokened text. */
+.select-field {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 16px;
+  padding-right: 2.1rem;
+}
+
+/* ── Focus ring (§4 / §17 — always visible, replaces default outline) ── */
+.focus-ring:focus-visible,
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  /* Ring follows each element's own border-radius — do not set radius here. */
+  box-shadow:
+    0 0 0 2px rgb(var(--card-bg)),
+    0 0 0 4px rgb(var(--focus-ring) / 0.55);
+}
+
+/* ── Motion (§16) ─────────────────────────────────────────────────────────── */
+
+/* Subtle page entrance — content fades in and rises ~6px. */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }
 }
 .animate-page {
-  animation: fadeInUp 0.32s ease-out both;
+  animation: fadeInUp var(--dur-page) var(--ease-out) both;
 }
 
-/* Thin scrollbars for the app shell */
+/* Tab / scenario cross-fade (§16) — opacity only (no translate), keyed on the active
+ * tab so switching panels fades rather than snaps. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-fade {
+  animation: fadeIn var(--dur-tab) var(--ease-standard) both;
+}
+
+/* Smooth theme colour transition — enabled only while toggling (a `.theming`
+ * class on <html>), so it never animates hovers or the first paint. */
+:root.theming *,
+:root.theming *::before,
+:root.theming *::after {
+  transition:
+    background-color var(--dur-theme) var(--ease-standard),
+    border-color var(--dur-theme) var(--ease-standard),
+    color var(--dur-theme) var(--ease-standard),
+    fill var(--dur-theme) var(--ease-standard),
+    stroke var(--dur-theme) var(--ease-standard) !important;
+}
+
+/* Respect reduced-motion everywhere (§16 / §17). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-page { animation: none; }
+}
+
+/* Thin, themed scrollbars for the app shell */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--scrollbar-thumb);
   border-radius: 999px;
 }

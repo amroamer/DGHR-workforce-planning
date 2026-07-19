@@ -7,10 +7,9 @@ export function VisionBadge({ className }: { className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+        "inline-flex items-center gap-1 rounded-full bg-teal-bg px-2.5 py-0.5 text-[11px] font-semibold text-teal",
         className,
       )}
-      style={{ backgroundColor: "#E6F7F4", color: "#0D9488" }}
     >
       <Sparkles size={12} />
       Layer B Preview · Illustrative

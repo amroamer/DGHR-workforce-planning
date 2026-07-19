@@ -8,6 +8,7 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app import models as m
+from app.services import cycles
 
 PACKAGE_COLUMNS = [
     ("org_structure", "Org Structure"),
@@ -49,9 +50,47 @@ def _returned_entity_ids(db: Session) -> set[int]:
     }
 
 
+def dghr_reviewers(db: Session) -> list[dict]:
+    """DGHR analysts/reviewers available for assignment (DQ-04 / CLR-13)."""
+    rows = db.query(m.User).filter(m.User.role.in_(["dghr_analyst", "dghr_reviewer", "dghr_admin"])).all()
+    return [{"id": u.id, "name": u.name, "role": u.role} for u in rows]
+
+
+def build_issue_detail(db: Session, issue_id: int) -> dict | None:
+    """MD-03 issue drawer: full detail + sample affected records + assignable reviewers."""
+    issue = db.get(m.ValidationIssue, issue_id)
+    if not issue:
+        return None
+    entity = db.get(m.Entity, issue.entity_id)
+    users = {u.id: u for u in db.query(m.User).all()}
+    # sample affected records — workforce rows carrying validation issues, else unmapped org sections
+    samples: list[dict] = []
+    wf = (db.query(m.WorkforceRecord)
+          .filter(m.WorkforceRecord.entity_id == issue.entity_id, m.WorkforceRecord.issues != [])
+          .limit(6).all())
+    for r in wf:
+        samples.append({"kind": "workforce", "label": f"{r.section} · {r.job_title}",
+                        "detail": ", ".join(r.issues or []) or "flagged"})
+    if not samples:
+        org = (db.query(m.OrgSection)
+               .filter(m.OrgSection.entity_id == issue.entity_id, m.OrgSection.status != "mapped")
+               .limit(6).all())
+        for s in org:
+            samples.append({"kind": "org", "label": f"{s.department} · {s.name}", "detail": s.status})
+    return {
+        "id": issue.id, "issue_type": issue.issue_type, "package_key": issue.package_key,
+        "entity": entity.name if entity else "", "entity_id": issue.entity_id,
+        "severity": issue.severity, "ai_confidence": issue.ai_confidence, "status": issue.status,
+        "assigned_to": issue.assigned_to,
+        "assigned_to_name": users[issue.assigned_to].name if issue.assigned_to and issue.assigned_to in users else None,
+        "samples": samples,
+        "reviewers": dghr_reviewers(db),
+    }
+
+
 # ─────────────────────────── tracker (screen 03) ───────────────────────────
 def build_tracker(db: Session, *, wave=None, status=None, reviewer=None, package=None,
-                  due=None, search=None, sort="default", direction="asc", page=1, page_size=10) -> dict:
+                  due=None, search=None, completeness=None, sort="default", direction="asc", page=1, page_size=10) -> dict:
     entities = db.query(m.Entity).all()
     users = _reviewer_info(db)
     pkg_map = _entity_package_map(db)
@@ -79,6 +118,8 @@ def build_tracker(db: Session, *, wave=None, status=None, reviewer=None, package
         rows = [e for e in rows if e.overdue]
     elif due == "week":
         rows = [e for e in rows if e.due_date and 0 <= (e.due_date - today).days <= 7]
+    if completeness == "low":  # TRK-18 follow-up: Low Completeness (<60%)
+        rows = [e for e in rows if e.completeness < 60]
     if search:
         s = search.lower()
         rows = [e for e in rows if s in e.name.lower() or s in e.code.lower()]
@@ -151,8 +192,9 @@ def tracker_followups(db: Session) -> dict:
     }
 
 
-def tracker_csv(db: Session) -> str:
-    data = build_tracker(db, page=1, page_size=10000)
+def tracker_csv(db: Session, **filters) -> str:
+    # TRK-10: export reflects the current filtered/sorted view.
+    data = build_tracker(db, page=1, page_size=10000, **filters)
     cols = data["columns"]
     header = ["Entity", "Code", "Wave", *cols, "Overall Completeness", "Reviewer", "Due Date", "Status"]
     lines = [",".join(header)]
@@ -171,7 +213,7 @@ def tracker_csv(db: Session) -> str:
 
 # ─────────────────────────── config (screen 02) ───────────────────────────
 def build_config(db: Session) -> dict:
-    cycle = db.query(m.CollectionCycle).first()
+    cycle = cycles.current_cycle(db)
     packages = db.query(m.DataPackage).order_by(m.DataPackage.position).all()
     section_types = db.query(m.SectionType).order_by(m.SectionType.id).all()
     today = date.today()
@@ -199,7 +241,7 @@ def build_config(db: Session) -> dict:
     days_remaining = (cycle.deadline - today).days if cycle else 0
     return {
         "cycle": {
-            "name": cycle.name, "status": cycle.status,
+            "id": cycle.id, "name": cycle.name, "status": cycle.status,
             "starts_on": cycle.starts_on.isoformat(), "ends_on": cycle.ends_on.isoformat(),
             "deadline": cycle.deadline.isoformat(), "days_remaining": days_remaining,
             "version_label": cycle.version_label, "late_policy": cycle.late_policy,

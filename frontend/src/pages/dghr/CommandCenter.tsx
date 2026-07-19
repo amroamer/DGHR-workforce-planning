@@ -17,6 +17,7 @@ import { DonutChart, TrendLine } from "@/components/shared/charts";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ProgressBar } from "@/components/shared/ProgressBar";
 import { EntityDrawer } from "@/components/shared/EntityDrawer";
+import { THEAD_TR, TROW } from "@/components/ui/table";
 import type { ActionQueueItem } from "@/lib/types";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -29,11 +30,12 @@ const MISSING_ICONS: Record<string, React.ReactNode> = {
   evidence: <FileText size={18} />,
 };
 const ALERT_ICON = { danger: <AlertCircle size={18} />, warning: <AlertTriangle size={18} />, info: <Info size={18} /> };
-const ALERT_TONE = { danger: "#E11D48", warning: "#EA8A00", info: "#0EA5E9" };
+// Semantic accent classes (adapt to light/dark) rather than fixed hex.
+const ALERT_TONE = { danger: "text-danger", warning: "text-warning", info: "text-info" };
 
-function SectionCard({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+function SectionCard({ title, action, children, id }: { title: string; action?: React.ReactNode; children: React.ReactNode; id?: string }) {
   return (
-    <Card className="flex h-full flex-col">
+    <Card id={id} className="flex h-full flex-col">
       <div className="flex items-center justify-between px-5 pt-5">
         <h3 className="text-base font-semibold text-text1">{title}</h3>
         {action}
@@ -63,17 +65,22 @@ export function CommandCenter() {
     toast.success(`Approved ${r.approved} validation-ready entities.`);
   };
   const sendReminders = async () => {
-    const ids = (data?.actions_queue.items ?? []).map((x) => x.id);
-    await api.remind(ids);
+    // CC-15: remind ALL in-progress entities (server resolves the set), not just the visible queue.
+    const r = await api.remind([], "in_progress");
     qc.invalidateQueries();
-    toast.success(`Reminders sent to ${ids.length} entities.`);
+    toast.success(`Reminders sent to ${r.reminded} in-progress entities.`);
+  };
+  const escalateBlockers = async () => {
+    const r = await api.escalate({}); // default: all overdue
+    qc.invalidateQueries();
+    toast.success(`Escalated ${r.escalated} overdue entities to senior review.`);
   };
 
-  const nextAction = (row: ActionQueueItem) => {
-    if (row.next_action === "Send Reminder") toast.success(`Reminder sent to ${row.name}.`);
+  const nextAction = async (row: ActionQueueItem) => {
+    if (row.next_action === "Send Reminder") { await api.remind([row.id]); qc.invalidateQueries(); toast.success(`Reminder sent to ${row.name}.`); }
     else if (row.next_action === "Review & Return") navigate(`/dghr/clarifications?entity=${row.id}`);
-    else if (row.next_action === "Escalate") toast.message(`${row.name} escalated to senior review.`);
-    else navigate("/dghr/submissions");
+    else if (row.next_action === "Escalate") { await api.escalate({ entity_ids: [row.id] }); qc.invalidateQueries(); toast.success(`${row.name} escalated to senior review.`); }
+    else navigate(`/dghr/submissions?status=submitted`);
   };
 
   const k = data?.kpis;
@@ -97,7 +104,7 @@ export function CommandCenter() {
             ring={k?.overall_progress.pct ?? 0}
             label="Overall Collection Progress"
             sublabel={`${k?.overall_progress.received ?? 0} of ${k?.overall_progress.total ?? 0} entities`}
-            link={{ text: "View progress", onClick: () => navigate("/dghr/forecasting-readiness") }}
+            link={{ text: "View progress", onClick: () => document.getElementById("trend-card")?.scrollIntoView({ behavior: "smooth", block: "center" }) }}
           />
         </div>
 
@@ -122,7 +129,7 @@ export function CommandCenter() {
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s.status] }} />
                         {s.label}
                       </span>
-                      <span className="text-text2"><b className="text-text1">{s.count}</b> · {s.pct}%</span>
+                      <span className="nums text-text2"><b className="text-text1">{s.count}</b> · {s.pct}%</span>
                     </div>
                   ))}
                 </div>
@@ -138,56 +145,56 @@ export function CommandCenter() {
             <SectionCard title="Entities Requiring Action (Prioritized)" action={<ViewLink label="View all" onClick={() => navigate("/dghr/submissions")} />}>
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-[#EEF2F7] text-[11px] uppercase text-text3">
-                    <th className="pb-2 font-semibold">Entity Name</th>
-                    <th className="pb-2 font-semibold">Status</th>
-                    <th className="pb-2 font-semibold">Completeness</th>
-                    <th className="pb-2 text-center font-semibold">Quality</th>
-                    <th className="pb-2 font-semibold">Due Date</th>
-                    <th className="pb-2 font-semibold">Next Action</th>
-                    <th />
+                  <tr className={THEAD_TR}>
+                    <th className="py-2.5 pr-4">Entity Name</th>
+                    <th className="py-2.5 pr-4">Status</th>
+                    <th className="py-2.5 pr-4">Completeness</th>
+                    <th className="py-2.5 pr-4 text-center">Quality</th>
+                    <th className="py-2.5 pr-4">Due Date</th>
+                    <th className="py-2.5 pr-4">Next Action</th>
+                    <th className="py-2.5" />
                   </tr>
                 </thead>
                 <tbody>
                   {(data?.actions_queue.items ?? []).map((r) => (
-                    <tr key={r.id} className="border-b border-[#EEF2F7] last:border-0">
-                      <td className="py-2.5 font-medium text-text1">{r.name}</td>
-                      <td><StatusBadge value={r.overdue ? "overdue" : r.status} /></td>
-                      <td className="w-28"><ProgressBar value={r.completeness} showValue /></td>
-                      <td className="text-center">
+                    <tr key={r.id} className={TROW}>
+                      <td className="py-3 pr-4 font-medium text-text1">{r.name}</td>
+                      <td className="py-3 pr-4"><StatusBadge value={r.overdue ? "overdue" : r.status} /></td>
+                      <td className="w-28 py-3 pr-4"><ProgressBar value={r.completeness} showValue /></td>
+                      <td className="py-3 pr-4 text-center">
                         {r.quality_score != null ? (
-                          <span className="inline-block rounded-md bg-warning-bg px-2 py-0.5 text-xs font-semibold text-warning">{r.quality_score}</span>
+                          <span className="nums inline-block rounded-md bg-warning-bg px-2 py-0.5 text-xs font-semibold text-warning">{r.quality_score}</span>
                         ) : <span className="text-text3">—</span>}
                       </td>
-                      <td className={r.overdue ? "text-danger" : "text-text2"}>{r.due_date ?? "—"}</td>
-                      <td><button onClick={() => nextAction(r)} className="text-xs font-semibold text-primary hover:underline">{r.next_action}</button></td>
-                      <td><button onClick={() => setDrawerId(r.id)} className="text-text3 hover:text-text1"><MoreHorizontal size={16} /></button></td>
+                      <td className={`py-3 pr-4 nums ${r.overdue ? "text-danger" : "text-text2"}`}>{r.due_date ?? "—"}</td>
+                      <td className="py-3 pr-4"><button onClick={() => nextAction(r)} className="text-xs font-semibold text-primary hover:underline">{r.next_action}</button></td>
+                      <td className="py-3 text-right"><button aria-label={`View ${r.name}`} onClick={() => setDrawerId(r.id)} className="text-text3 hover:text-text1"><MoreHorizontal size={16} /></button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div className="mt-3 text-xs text-text3">Showing 1 to {data?.actions_queue.items.length ?? 0} of {data?.actions_queue.total ?? 0} entities</div>
+              <div className="nums mt-3 text-xs text-text3">Showing 1 to {data?.actions_queue.items.length ?? 0} of {data?.actions_queue.total ?? 0} entities</div>
             </SectionCard>
           </div>
 
           {/* readiness */}
           <div className="col-span-3">
             <SectionCard title="Data Readiness for Forecasting" action={<ViewLink label="View all" onClick={() => navigate("/dghr/forecasting-readiness")} />}>
-              <button onClick={() => navigate("/dghr/forecasting-readiness")} className="flex w-full items-center gap-3 rounded-card border border-success/30 bg-success-bg/50 p-3 text-left">
+              <button onClick={() => navigate("/dghr/forecasting-readiness")} className="flex w-full items-center gap-3 rounded-card border-l-4 border-success bg-success-bg/60 p-3 text-left transition-colors duration-card hover:bg-success-bg">
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-success text-white"><TrendingUp size={18} /></span>
                 <div className="flex-1">
                   <div className="text-xs font-semibold text-text2">Ready for Forecasting</div>
-                  <div className="text-lg font-bold text-text1">{data?.forecasting.ready ?? 0} Entities</div>
-                  <div className="text-xs text-text3">{data?.forecasting.ready_pct ?? 0}% of total</div>
+                  <div className="nums text-lg font-bold text-text1">{data?.forecasting.ready ?? 0} Entities</div>
+                  <div className="nums text-xs text-text3">{data?.forecasting.ready_pct ?? 0}% of total</div>
                 </div>
                 <ChevronRight size={18} className="text-text3" />
               </button>
-              <button onClick={() => navigate("/dghr/forecasting-readiness")} className="mt-3 flex w-full items-center gap-3 rounded-card border border-danger/30 bg-danger-bg/50 p-3 text-left">
+              <button onClick={() => navigate("/dghr/forecasting-readiness")} className="mt-3 flex w-full items-center gap-3 rounded-card border-l-4 border-danger bg-danger-bg/60 p-3 text-left transition-colors duration-card hover:bg-danger-bg">
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-danger text-white"><Lock size={16} /></span>
                 <div className="flex-1">
                   <div className="text-xs font-semibold text-text2">Blocked / Not Ready</div>
-                  <div className="text-lg font-bold text-text1">{data?.forecasting.blocked ?? 0} Entities</div>
-                  <div className="text-xs text-text3">{data?.forecasting.blocked_pct ?? 0}% of total</div>
+                  <div className="nums text-lg font-bold text-text1">{data?.forecasting.blocked ?? 0} Entities</div>
+                  <div className="nums text-xs text-text3">{data?.forecasting.blocked_pct ?? 0}% of total</div>
                 </div>
                 <ChevronRight size={18} className="text-text3" />
               </button>
@@ -203,9 +210,9 @@ export function CommandCenter() {
           <SectionCard title="Missing Data Summary" action={<ViewLink label="View details" onClick={() => navigate("/dghr/submissions")} />}>
             <div className="grid grid-cols-5 gap-2">
               {(data?.missing_summary ?? []).map((mi) => (
-                <div key={mi.key} className="flex flex-col items-center rounded-lg border border-border p-2 text-center">
-                  <span className="mb-1 flex h-9 w-9 items-center justify-center rounded-full bg-page text-primary">{MISSING_ICONS[mi.key]}</span>
-                  <div className="text-lg font-bold text-text1">{mi.count}</div>
+                <div key={mi.key} className="flex flex-col items-center rounded-lg bg-surface2 p-2 text-center">
+                  <span className="mb-1 flex h-9 w-9 items-center justify-center rounded-full bg-card text-primary">{MISSING_ICONS[mi.key]}</span>
+                  <div className="nums text-lg font-bold text-text1">{mi.count}</div>
                   <div className="text-[10px] leading-tight text-text3">{mi.label}</div>
                   <div className="text-[9px] text-text3">Entities missing</div>
                 </div>
@@ -214,11 +221,11 @@ export function CommandCenter() {
             <p className="mt-3 text-[11px] text-text3">Counts represent entities with critical gaps in each data category.</p>
           </SectionCard>
 
-          <SectionCard title="Recent Alerts & AI Flags" action={<ViewLink label="View all alerts" onClick={() => toast.message("Available in the full release")} />}>
+          <SectionCard title="Recent Alerts & AI Flags" action={<ViewLink label="View all alerts" onClick={() => navigate("/dghr/data-quality")} />}>
             <div className="space-y-3">
               {(data?.alerts ?? []).map((a, i) => (
                 <div key={i} className="flex gap-3">
-                  <span className="mt-0.5 shrink-0" style={{ color: ALERT_TONE[a.severity] }}>{ALERT_ICON[a.severity]}</span>
+                  <span className={`mt-0.5 shrink-0 ${ALERT_TONE[a.severity]}`}>{ALERT_ICON[a.severity]}</span>
                   <div>
                     <div className="text-sm font-semibold text-text1">{a.title}</div>
                     <div className="text-xs text-text2">{a.body}</div>
@@ -228,7 +235,7 @@ export function CommandCenter() {
             </div>
           </SectionCard>
 
-          <SectionCard title="Collection Progress Trend" action={<ViewLink label="View report" onClick={() => toast.message("Available in the full release")} />}>
+          <SectionCard id="trend-card" title="Collection Progress Trend" action={<ViewLink label="View report" onClick={() => navigate("/dghr/forecasting-readiness")} />}>
             <TrendLine data={data?.trend ?? []} />
           </SectionCard>
         </div>
@@ -243,10 +250,10 @@ export function CommandCenter() {
             {[
               { icon: <FileText size={18} />, title: "Review Submissions", sub: `${data?.kpis.submissions_received.value ?? 0} ready for review`, onClick: () => navigate("/dghr/submissions") },
               { icon: <Send size={18} />, title: "Send Reminders", sub: `entities in progress`, onClick: sendReminders },
-              { icon: <Flag size={18} />, title: "Escalate Blockers", sub: `${data?.kpis.overdue_items ?? 0} overdue items`, onClick: () => toast.message("Escalation queued.") },
+              { icon: <Flag size={18} />, title: "Escalate Blockers", sub: `${data?.kpis.overdue_items ?? 0} overdue items`, onClick: escalateBlockers },
               { icon: <UserCheck size={18} />, title: "Approve Ready Entities", sub: `${data?.forecasting.ready ?? 0} entities ready`, onClick: approveReady },
             ].map((s) => (
-              <button key={s.title} onClick={s.onClick} className="flex items-center gap-3 rounded-card border border-border p-3 text-left hover:bg-page">
+              <button key={s.title} onClick={s.onClick} className="flex items-center gap-3 rounded-card bg-surface2 p-3 text-left transition-colors duration-card hover:bg-surface3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-full bg-info-bg text-info">{s.icon}</span>
                 <div className="flex-1">
                   <div className="text-sm font-semibold text-text1">{s.title}</div>

@@ -8,7 +8,7 @@ from datetime import date, timedelta
 from sqlalchemy.orm import Session
 
 from app import models as m
-from app.services import dghr_views
+from app.services import cycles, dghr_views
 
 
 def _is_ready(e: m.Entity) -> bool:
@@ -34,7 +34,7 @@ def build_readiness(db: Session, *, filter_state="all", page=1, page_size=8) -> 
     total = len(entities)
     ready = [e for e in entities if _is_ready(e)]
     blocked = [e for e in entities if not _is_ready(e)]
-    cycle = db.query(m.CollectionCycle).first()
+    cycle = cycles.current_cycle(db)
     target_date = (cycle.deadline + timedelta(days=7)).isoformat() if cycle else None
 
     avg_completeness = round(sum(e.completeness for e in entities) / total) if total else 0

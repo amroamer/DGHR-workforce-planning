@@ -76,7 +76,7 @@ export function Home() {
               <div className="space-y-3">
                 {(data?.messages ?? []).map((mg) => (
                   <button key={mg.id} onClick={() => navigate("/entity/clarifications")} className="flex w-full gap-2.5 text-left">
-                    <span className="mt-0.5 shrink-0" style={{ color: mg.kind === "announcement" ? "#0EA5E9" : "#EA8A00" }}>
+                    <span className="mt-0.5 shrink-0" style={{ color: mg.kind === "announcement" ? "rgb(var(--info))" : "rgb(var(--warning))" }}>
                       {mg.kind === "announcement" ? <Megaphone size={16} /> : <ShieldQuestion size={16} />}
                     </span>
                     <div className="flex-1">

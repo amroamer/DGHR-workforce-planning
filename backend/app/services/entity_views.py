@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models as m
+from app.services import cycles
 
 # Home package display copy (screen 06 — verbatim) + route keys.
 HOME_PACKAGES = {
@@ -43,7 +44,7 @@ def _applicable_packages(db: Session, entity_id: int):
 # ─────────────────────────── home (screen 06) ───────────────────────────
 def build_home(db: Session, entity_id: int) -> dict:
     e = db.get(m.Entity, entity_id)
-    cycle = db.query(m.CollectionCycle).first()
+    cycle = cycles.current_cycle(db)
     pkgs = _applicable_packages(db, entity_id)
     today = date.today()
 
@@ -328,10 +329,12 @@ def build_drivers(db: Session, entity_id: int) -> dict:
         "drivers": [{
             "id": d.id, "category": d.category, "description": d.description,
             "impact": d.impact, "horizon": d.horizon, "status": d.status,
+            "linked_sections": [s for s in (d.linked_sections or "").split(",") if s],
         } for d in drivers],
         "evidence": [{
             "id": ev.id, "filename": ev.filename, "source_org": ev.source_org,
             "linked_label": ev.linked_label, "quality": ev.quality,
+            "linked_driver_id": ev.linked_driver_id,
             "uploaded_at": ev.uploaded_at.isoformat() if ev.uploaded_at else None,
         } for ev in evidence[:12]],
         "evidence_total": len(evidence),

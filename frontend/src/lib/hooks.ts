@@ -13,7 +13,8 @@ export function useAudience(): { audience: "dghr" | "entity"; entityId?: number 
     staleTime: Infinity,
   });
   if (persona.type === "dghr") return { audience: "dghr" };
-  const entityId = persona.code ? data?.[persona.code]?.id : undefined;
+  // Dynamically-picked entities carry their id directly; DM/DHA presets resolve via the map.
+  const entityId = persona.entityId ?? (persona.code ? data?.[persona.code]?.id : undefined);
   return { audience: "entity", entityId };
 }
 

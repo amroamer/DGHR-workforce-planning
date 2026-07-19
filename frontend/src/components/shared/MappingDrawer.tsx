@@ -66,7 +66,7 @@ export function MappingDrawer({ entityId, open, onClose }: { entityId: number; o
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="mb-2 text-xs text-text3">AI-suggested standard mappings for unmapped and partially-mapped titles. Accept to map all matching records.</p>
+          <p className="mb-2 text-xs text-text3">Smart-suggested standard mappings for unmapped and partially-mapped titles. Accept to map all matching records.</p>
           {rows.map((r) => {
             const s = suggestions[r.title];
             const done = accepted.has(r.title);
@@ -79,7 +79,7 @@ export function MappingDrawer({ entityId, open, onClose }: { entityId: number; o
                 {s?.suggested_title ? (
                   <div className="mt-2 flex items-center gap-2">
                     <Sparkles size={13} className="text-teal" />
-                    <div className="flex-1 text-xs text-text2">→ <span className="font-semibold text-text1">{s.suggested_title}</span> · {s.family} <span className="text-text3">({s.confidence}%)</span></div>
+                    <div className="flex-1 text-xs text-text2">→ <span className="font-semibold text-text1">{s.suggested_title}</span>, {s.family} <span className="text-text3">({s.confidence}%)</span></div>
                     {done ? (
                       <span className="flex items-center gap-1 text-xs font-semibold text-success"><Check size={14} /> Mapped</span>
                     ) : (
@@ -87,7 +87,7 @@ export function MappingDrawer({ entityId, open, onClose }: { entityId: number; o
                     )}
                   </div>
                 ) : (
-                  <div className="mt-2 text-xs text-text3">No confident suggestion — manual mapping required.</div>
+                  <div className="mt-2 text-xs text-text3">No confident suggestion, manual mapping required.</div>
                 )}
                 <div className="mt-1 text-[11px] text-text3">{r.ids.length} record{r.ids.length > 1 ? "s" : ""}</div>
               </div>

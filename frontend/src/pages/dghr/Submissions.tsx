@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Building2, FileCheck2, CornerUpLeft, Clock, ShieldCheck,
-  Send, ListChecks, Download, Filter, MoreHorizontal, AlertCircle, Flag, TrendingDown, UserX,
-  FileWarning, ClipboardX, Boxes,
+  Send, ListChecks, Download, Filter, AlertCircle, Flag, TrendingDown, UserX,
+  FileWarning, ClipboardX, Boxes, Eye, MessageSquareWarning, CornerDownLeft, CheckCircle2,
 } from "lucide-react";
 import { api, type TrackerFilters } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
@@ -17,6 +18,11 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { ProgressBar } from "@/components/shared/ProgressBar";
 import { PaginationFooter } from "@/components/shared/DataTable";
 import { EntityDrawer } from "@/components/shared/EntityDrawer";
+import { RowMenu } from "@/components/shared/Dropdown";
+import { OpenClarificationModal, ReturnSubmissionModal } from "@/components/shared/CaseModals";
+import { THEAD_TR, TROW } from "@/components/ui/table";
+import { useTone } from "@/lib/tone";
+import type { TrackerRow } from "@/lib/types";
 
 function Select({ label, value, options, onChange }: {
   label: string; value: string; options: { value: string; label: string }[]; onChange: (v: string) => void;
@@ -25,9 +31,10 @@ function Select({ label, value, options, onChange }: {
     <div className="flex flex-col gap-1">
       <span className="text-[11px] font-semibold uppercase text-text3">{label}</span>
       <select
+        aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-9 rounded-btn border border-border bg-white px-2 text-sm text-text1"
+        className="select-field h-9 rounded-btn border border-border bg-card px-2 text-sm text-text1"
       >
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
       </select>
@@ -42,15 +49,46 @@ const BLOCK_ICONS: Record<string, React.ReactNode> = {
 
 export function Submissions() {
   const qc = useQueryClient();
-  const [filters, setFilters] = useState<TrackerFilters>({ page: 1, page_size: 10 });
-  const [drawerId, setDrawerId] = useState<number | null>(null);
+  const [sp, setSp] = useSearchParams();
+  const [clarifyFor, setClarifyFor] = useState<TrackerRow | null>(null);
+  const [returnFor, setReturnFor] = useState<TrackerRow | null>(null);
+  // Read initial filters + focused entity from the URL (CC-07/CC-09/FR-03 deep-links; TRK-02).
+  const [filters, setFilters] = useState<TrackerFilters>(() => ({
+    page: 1,
+    page_size: 10,
+    status: sp.get("status") || undefined,
+    wave: sp.get("wave") || undefined,
+    reviewer: sp.get("reviewer") || undefined,
+    package: sp.get("package") || undefined,
+    due: sp.get("due") || undefined,
+    search: sp.get("search") || undefined,
+  }));
+  const [drawerId, setDrawerId] = useState<number | null>(sp.get("entity") ? Number(sp.get("entity")) : null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
 
   const set = (patch: Partial<TrackerFilters>) => setFilters((f) => ({ ...f, ...patch, page: patch.page ?? 1 }));
 
+  // TRK-02 / G-03: keep filters in the URL so they're shareable + reload-stable.
+  useEffect(() => {
+    const q = new URLSearchParams();
+    (["wave", "status", "reviewer", "package", "due", "search", "completeness", "sort", "direction"] as const)
+      .forEach((k) => { const v = filters[k]; if (v) q.set(k, String(v)); });
+    setSp(q, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters]);
+
   const targetIds = () => (selected.size ? [...selected] : (data?.rows.filter((r) => r.overdue).map((r) => r.id) ?? []));
   const sendReminder = async () => { const ids = targetIds(); await api.remind(ids); qc.invalidateQueries(); toast.success(`Reminder sent to ${ids.length} entities.`); };
-  const bulkReview = async () => { const ids = [...selected]; if (!ids.length) return toast.message("Select entities to review."); await api.bulkReview(ids); qc.invalidateQueries(); setSelected(new Set()); toast.success(`${ids.length} moved to review.`); };
+  const bulkReview = async () => {
+    const ids = [...selected];
+    if (!ids.length) return toast.message("Select entities to review.");
+    if (!window.confirm(`Move ${ids.length} selected ${ids.length === 1 ? "entity" : "entities"} to review?`)) return; // MD-13
+    const r = await api.bulkReview(ids);
+    qc.invalidateQueries(); setSelected(new Set());
+    toast.success(`${r.reviewed} moved to review${r.skipped ? `, ${r.skipped} skipped (nothing submitted)` : ""}.`); // TRK-08
+  };
+  const remindOne = async (r: TrackerRow) => { await api.remind([r.id]); qc.invalidateQueries(); toast.success(`Reminder sent to ${r.name}.`); };
+  const approveOne = async (r: TrackerRow) => { await api.approve({ entity_ids: [r.id] }); qc.invalidateQueries(); toast.success(`${r.name} approved.`); };
 
   const { data } = useQuery({
     queryKey: ["tracker", filters],
@@ -62,6 +100,7 @@ export function Submissions() {
 
   const k = data?.kpis;
   const cols = data?.columns ?? [];
+  const tone = useTone();
   const toggleSort = (key: string) =>
     set({ sort: key, direction: filters.sort === key && filters.direction === "asc" ? "desc" : "asc" });
 
@@ -78,7 +117,7 @@ export function Submissions() {
             <Button size="sm" onClick={bulkReview}>
               <ListChecks size={15} /> Bulk Review
             </Button>
-            <a href={api.trackerCsvUrl()} download>
+            <a href={api.trackerCsvUrl(filters)} download>
               <Button variant="secondary" size="sm"><Download size={15} /> Export Tracker</Button>
             </a>
           </>
@@ -120,8 +159,8 @@ export function Submissions() {
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
-                  <tr className="border-b border-[#EEF2F7] text-[11px] uppercase text-text3">
-                    <th className="w-10 px-4 py-3"><input type="checkbox" className="accent-primary"
+                  <tr className={THEAD_TR}>
+                    <th className="w-10 px-4 py-3"><input type="checkbox" aria-label="Select all entities" className="accent-primary"
                       checked={!!data?.rows.length && data.rows.every((r) => selected.has(r.id))}
                       onChange={(e) => setSelected(e.target.checked ? new Set(data?.rows.map((r) => r.id)) : new Set())} /></th>
                     <th className="px-3 py-3"><button onClick={() => toggleSort("name")} className="font-semibold hover:text-text1">Entity Name</button></th>
@@ -136,17 +175,17 @@ export function Submissions() {
                 </thead>
                 <tbody>
                   {(data?.rows ?? []).map((r) => (
-                    <tr key={r.id} className="border-b border-[#EEF2F7] hover:bg-[#F8FAFC]">
-                      <td className="px-4 py-3"><input type="checkbox" className="accent-primary" checked={selected.has(r.id)}
+                    <tr key={r.id} onClick={() => setDrawerId(r.id)} className={`${TROW} cursor-pointer`}>
+                      <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={`Select ${r.name}`} className="accent-primary" checked={selected.has(r.id)}
                         onChange={() => setSelected((s) => { const n = new Set(s); n.has(r.id) ? n.delete(r.id) : n.add(r.id); return n; })} /></td>
-                      <td className="px-3 py-3"><div className="font-semibold text-text1">{r.name}</div><div className="text-xs text-text3">{r.code}</div></td>
-                      <td className="px-3 py-3 text-text2">{r.wave}</td>
-                      {cols.map((c) => <td key={c} className="px-2 py-3 text-center"><PctChip value={r.packages[c] ?? null} /></td>)}
-                      <td className="px-3 py-3">
-                        <div className="font-bold text-text1">{r.completeness}%</div>
+                      <td className="px-3 py-3.5"><div className="font-semibold text-text1">{r.name}</div><div className="text-xs text-text3">{r.code}</div></td>
+                      <td className="px-3 py-3.5 text-text2">{r.wave}</td>
+                      {cols.map((c) => <td key={c} className="px-2 py-3.5 text-center"><PctChip value={r.packages[c] ?? null} /></td>)}
+                      <td className="px-3 py-3.5">
+                        <div className="nums font-bold text-text1">{r.completeness}%</div>
                         <ProgressBar value={r.completeness} className="mt-1 w-24" />
                       </td>
-                      <td className="px-3 py-3">
+                      <td className="px-3 py-3.5">
                         {r.reviewer ? (
                           <span className="flex items-center gap-2">
                             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-navy-900 text-[10px] font-bold text-white">{r.reviewer_initials}</span>
@@ -154,15 +193,29 @@ export function Submissions() {
                           </span>
                         ) : <span className="text-text3">Unassigned</span>}
                       </td>
-                      <td className={`px-3 py-3 ${r.overdue ? "font-semibold text-danger" : "text-text2"}`}>{r.due_date ?? "—"}</td>
-                      <td className="px-3 py-3"><StatusBadge value={r.overdue && r.status !== "submitted" ? "overdue" : r.status} label={r.overdue && r.status !== "submitted" ? "Overdue" : r.status_label} /></td>
-                      <td className="px-2"><button onClick={() => setDrawerId(r.id)} className="text-text3 hover:text-text1"><MoreHorizontal size={16} /></button></td>
+                      <td className={`px-3 py-3.5 ${r.overdue ? "font-semibold text-danger" : "text-text2"}`}>{r.due_date ?? "—"}</td>
+                      <td className="px-3 py-3.5"><StatusBadge value={r.overdue && r.status !== "submitted" ? "overdue" : r.status} label={r.overdue && r.status !== "submitted" ? "Overdue" : r.status_label} /></td>
+                      <td className="px-2">
+                        <RowMenu label={`Actions for ${r.name}`} items={[
+                          { label: "View Details", icon: <Eye size={15} />, onClick: () => setDrawerId(r.id) },
+                          { label: "Send Reminder", icon: <Send size={15} />, onClick: () => remindOne(r) },
+                          { label: "Open Clarification", icon: <MessageSquareWarning size={15} />, onClick: () => setClarifyFor(r) },
+                          { label: "Return Submission", icon: <CornerDownLeft size={15} />, onClick: () => setReturnFor(r) },
+                          // TRK-15 legal-only: approve only when there is something submitted/under review
+                          { label: "Approve", icon: <CheckCircle2 size={15} />, disabled: !["submitted", "under_review"].includes(r.status), onClick: () => approveOne(r) },
+                        ]} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <div className="flex items-center justify-between px-4 py-3 text-sm text-text2">
+              <label className="flex items-center gap-2">Rows per page
+                <select aria-label="Rows per page" value={filters.page_size} onChange={(e) => set({ page_size: Number(e.target.value) })} className="select-field h-8 rounded-btn border border-border bg-card px-2">
+                  {[10, 25, 50].map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </label>
               <PaginationFooter page={data?.page ?? 1} pageSize={data?.page_size ?? 10} total={data?.total ?? 0} onPage={(p) => set({ page: p })} />
             </div>
           </Card>
@@ -177,14 +230,14 @@ export function Submissions() {
               <div className="space-y-2.5">
                 {(blocked?.items ?? []).map((b) => (
                   <div key={b.key} className="flex items-center gap-2 text-sm">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-page text-text2">{BLOCK_ICONS[b.key]}</span>
+                    <span className="flex h-7 w-7 items-center justify-center rounded-md bg-inset text-text2">{BLOCK_ICONS[b.key]}</span>
                     <span className="flex-1 text-text2">{b.label}</span>
-                    <span className="font-semibold text-text1">{b.count}</span>
-                    <span className="w-9 text-right text-xs text-text3">{b.pct}%</span>
+                    <span className="nums font-semibold text-text1">{b.count}</span>
+                    <span className="nums w-9 text-right text-xs text-text3">{b.pct}%</span>
                   </div>
                 ))}
                 <div className="flex items-center justify-between border-t border-border pt-2 text-sm font-semibold text-text1">
-                  <span>Total</span><span>{blocked?.total ?? 0}</span><span className="text-text3">100%</span>
+                  <span>Total</span><span className="nums">{blocked?.total ?? 0}</span><span className="nums text-text3">100%</span>
                 </div>
               </div>
             </Card>
@@ -198,13 +251,13 @@ export function Submissions() {
                 {[
                   { icon: <Clock size={15} />, tone: "#E11D48", label: "Overdue Submissions", sub: "Past due date", value: followups?.overdue, f: { due: "overdue" } },
                   { icon: <Flag size={15} />, tone: "#EA8A00", label: "Returned by Reviewer", sub: "Awaiting action", value: followups?.returned, f: { status: "returned" } },
-                  { icon: <TrendingDown size={15} />, tone: "#0EA5E9", label: "Low Completeness (<60%)", sub: "Needs attention", value: followups?.low_completeness, f: {} },
-                  { icon: <UserX size={15} />, tone: "#7C3AED", label: "Unassigned Reviewer", sub: "Requires assignment", value: followups?.unassigned, f: { reviewer: "" } },
+                  { icon: <TrendingDown size={15} />, tone: "#0EA5E9", label: "Low Completeness (<60%)", sub: "Needs attention", value: followups?.low_completeness, f: { completeness: "low" } },
+                  { icon: <UserX size={15} />, tone: "#7C3AED", label: "Unassigned Reviewer", sub: "Requires assignment", value: followups?.unassigned, f: { reviewer: "Unassigned" } },
                 ].map((r) => (
-                  <button key={r.label} onClick={() => set(r.f)} className="flex w-full items-center gap-2.5 rounded-lg border border-border p-2.5 text-left hover:bg-page">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full" style={{ color: r.tone, backgroundColor: `${r.tone}18` }}>{r.icon}</span>
+                  <button key={r.label} onClick={() => set(r.f)} className="flex w-full items-center gap-2.5 rounded-btn border border-border p-2.5 text-left transition-colors duration-fast hover:bg-surface2">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full" style={{ color: tone.fg(r.tone), backgroundColor: tone.chip(r.tone) }}>{r.icon}</span>
                     <div className="flex-1"><div className="text-sm font-medium text-text1">{r.label}</div><div className="text-[11px] text-text3">{r.sub}</div></div>
-                    <span className="text-lg font-bold text-text1">{r.value ?? 0}</span>
+                    <span className="nums text-lg font-bold text-text1">{r.value ?? 0}</span>
                   </button>
                 ))}
               </div>
@@ -214,6 +267,8 @@ export function Submissions() {
       </PageBody>
 
       <EntityDrawer entityId={drawerId} onClose={() => setDrawerId(null)} />
+      <OpenClarificationModal open={clarifyFor != null} entityId={clarifyFor?.id ?? null} entityName={clarifyFor?.name} onClose={() => setClarifyFor(null)} />
+      <ReturnSubmissionModal open={returnFor != null} entityId={returnFor?.id ?? null} entityName={returnFor?.name} onClose={() => setReturnFor(null)} />
     </>
   );
 }

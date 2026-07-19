@@ -3,6 +3,7 @@ import { ClarificationsView } from "@/components/shared/ClarificationsView";
 
 export { CommandCenter } from "./CommandCenter";
 export { DataCollection } from "./DataCollection";
+export { Entities } from "./Entities";
 export { Submissions } from "./Submissions";
 export { DataQuality } from "./DataQuality";
 export { ForecastingReadiness } from "./ForecastingReadiness";

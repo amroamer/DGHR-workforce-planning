@@ -5,6 +5,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -92,3 +93,40 @@ async def upload_evidence(
     workflow.bump_last_updated(db)
     db.commit()
     return {"ok": True, "id": doc.id, "filename": doc.filename}
+
+
+class EvidencePatch(BaseModel):
+    linked_label: str | None = None
+    quality: str | None = None
+
+
+@router.patch("/{entity_id}/evidence/{doc_id}")
+def patch_evidence(entity_id: int, doc_id: int, body: EvidencePatch, db: Session = Depends(get_db)) -> dict:
+    """DD-05: relink evidence (change the linked forecast section / quality)."""
+    doc = db.get(m.EvidenceDoc, doc_id)
+    if not doc or doc.entity_id != entity_id:
+        raise HTTPException(404, "Evidence not found")
+    if body.linked_label is not None:
+        doc.linked_label = body.linked_label
+    if body.quality is not None:
+        doc.quality = body.quality
+    workflow.bump_last_updated(db)
+    db.commit()
+    return {"ok": True, "id": doc.id}
+
+
+@router.delete("/{entity_id}/evidence/{doc_id}")
+def delete_evidence(entity_id: int, doc_id: int, db: Session = Depends(get_db)) -> dict:
+    """DD-05: remove an evidence document."""
+    doc = db.get(m.EvidenceDoc, doc_id)
+    if not doc or doc.entity_id != entity_id:
+        raise HTTPException(404, "Evidence not found")
+    try:
+        if doc.filepath and os.path.exists(doc.filepath):
+            os.remove(doc.filepath)
+    except OSError:
+        pass  # file already gone — the DB row is the source of truth
+    db.delete(doc)
+    workflow.bump_last_updated(db)
+    db.commit()
+    return {"ok": True}

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import cors_origins
 from app.db import get_db
-from app.routers import ai, cases, demo, dghr, entity, imports, notifications
+from app.routers import ai, cases, demo, dghr, entity, imports, notifications, planning
 from app.services import workflow
 from sqlalchemy.orm import Session
 from fastapi import Depends
@@ -45,6 +45,15 @@ def persona_entities(db: Session = Depends(get_db)) -> dict:
     return {r.code: {"id": r.id, "name": r.name} for r in rows}
 
 
+@app.get("/api/meta/entities", tags=["system"])
+def meta_entities(db: Session = Depends(get_db)) -> list[dict]:
+    """All entities for the persona picker — act as any of them (no auth, SPEC §1)."""
+    from app import models as m
+
+    rows = db.query(m.Entity).order_by(m.Entity.name).all()
+    return [{"id": r.id, "name": r.name, "code": r.code, "wave": r.wave} for r in rows]
+
+
 app.include_router(dghr.router)
 app.include_router(entity.router)
 app.include_router(cases.router)
@@ -52,3 +61,4 @@ app.include_router(imports.router)
 app.include_router(ai.router)
 app.include_router(notifications.router)
 app.include_router(demo.router)
+app.include_router(planning.router)

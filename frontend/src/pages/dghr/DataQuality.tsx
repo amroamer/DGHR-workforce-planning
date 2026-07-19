@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ShieldCheck, AlertOctagon, CheckCircle2, FileWarning, Copy, UserCheck,
@@ -15,7 +16,7 @@ import { KpiCard } from "@/components/shared/KpiCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { HBarChart } from "@/components/shared/charts";
 import { PaginationFooter } from "@/components/shared/DataTable";
-import { fmt } from "@/lib/utils";
+import { cn, fmt } from "@/lib/utils";
 import type { QualityAnomaly } from "@/lib/types";
 
 const PKG_LABEL: Record<string, string> = {
@@ -30,7 +31,7 @@ const sevIcon = (s: string) =>
 function ConfidenceBar({ v }: { v: number }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className="h-1.5 w-14 overflow-hidden rounded-full bg-[#EEF2F7]"><span className="block h-full rounded-full bg-success" style={{ width: `${v}%` }} /></span>
+      <span className="h-1.5 w-14 overflow-hidden rounded-full bg-border"><span className="block h-full rounded-full bg-success" style={{ width: `${v}%` }} /></span>
       <span className="text-xs text-text2">{v}%</span>
     </span>
   );
@@ -38,10 +39,13 @@ function ConfidenceBar({ v }: { v: number }) {
 
 export function DataQuality() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const [showAll, setShowAll] = useState(false);
   const [anomaly, setAnomaly] = useState<QualityAnomaly | null>(null);
   const [narrative, setNarrative] = useState<string | null>(null);
   const [narrLoading, setNarrLoading] = useState(false);
+  const pageSize = showAll ? 50 : 8; // backend caps page_size at 50
 
   const generateNarrative = async (id: number) => {
     setNarrLoading(true);
@@ -53,13 +57,34 @@ export function DataQuality() {
       setNarrLoading(false);
     }
   };
-  const { data } = useQuery({ queryKey: ["quality", page], queryFn: () => api.quality(page, 8), refetchInterval: 4000 });
+  const { data } = useQuery({ queryKey: ["quality", page, pageSize], queryFn: () => api.quality(page, pageSize), refetchInterval: 4000 });
   const k = data?.kpis;
 
-  const clearIssue = async (id: number) => {
-    await api.patchIssue(id, { status: "cleared" });
+  // Intuitive two-step: open → Investigate (In Progress, stays visible) → Resolve (cleared, leaves queue).
+  const advanceIssue = async (it: { id: number; status: string }) => {
+    const next = it.status === "in_progress" ? "cleared" : "in_progress";
+    await api.patchIssue(it.id, { status: next });
     qc.invalidateQueries({ queryKey: ["quality"] });
-    toast.success("Issue marked as cleared.");
+    toast.success(next === "cleared" ? "Issue resolved and cleared from the queue." : "Issue marked as in progress — now investigating.");
+  };
+
+  // MD-03 issue drawer + DQ-04 assign + DQ-05 send-back
+  const [issueId, setIssueId] = useState<number | null>(null);
+  const issueQ = useQuery({ queryKey: ["issue", issueId], queryFn: () => api.issueDetail(issueId!), enabled: issueId != null });
+  const iss = issueQ.data;
+  const assignAnalyst = async (uid: number) => {
+    if (issueId == null) return;
+    await api.patchIssue(issueId, { assigned_to: uid });
+    qc.invalidateQueries({ queryKey: ["issue", issueId] });
+    qc.invalidateQueries({ queryKey: ["quality"] });
+    toast.success("Analyst assigned.");
+  };
+  const sendBack = async () => {
+    if (issueId == null) return;
+    const r = await api.issueSendBack(issueId);
+    qc.invalidateQueries();
+    toast.warning(`${r.ref} — sent back to ${iss?.entity ?? "entity"}.`);
+    setIssueId(null);
   };
 
   return (
@@ -82,27 +107,31 @@ export function DataQuality() {
           <Card className="col-span-5">
             <div className="flex items-center justify-between px-5 pt-5">
               <h3 className="flex items-center gap-2 text-base font-semibold text-text1">Validation Issues Queue <span className="rounded-full bg-page px-2 py-0.5 text-xs text-text2">{data?.issues.total ?? 0}</span></h3>
-              <button onClick={() => toast.message("Available in the full release")} className="text-xs font-semibold text-primary hover:underline">View all issues →</button>
+              <button onClick={() => { setShowAll((v) => !v); setPage(1); }} className="text-xs font-semibold text-primary hover:underline">{showAll ? "Show less" : "View all issues →"}</button>
             </div>
             <div className="p-3">
+              <div className={showAll ? "max-h-[420px] overflow-y-auto" : ""}>
               <table className="w-full text-left text-sm">
                 <thead><tr className="text-[11px] uppercase text-text3"><th className="px-2 pb-2 font-semibold">Issue Type</th><th className="px-2 pb-2 font-semibold">Entity</th><th className="px-2 pb-2 font-semibold">Sev.</th><th className="px-2 pb-2 font-semibold">AI Conf.</th><th className="px-2 pb-2 font-semibold">Status</th><th /></tr></thead>
                 <tbody>
                   {(data?.issues.items ?? []).map((it) => (
-                    <tr key={it.id} className="border-t border-[#EEF2F7]">
+                    <tr key={it.id} onClick={() => setIssueId(it.id)} className="cursor-pointer border-t border-border hover:bg-page">
                       <td className="px-2 py-2.5"><span className="flex items-center gap-1.5 font-medium text-text1">{sevIcon(it.severity)} {it.issue_type}</span><span className="text-[11px] text-text3">{PKG_LABEL[it.package_key] ?? it.package_key}</span></td>
                       <td className="px-2 py-2.5 text-text2">{it.entity}</td>
                       <td className="px-2 py-2.5"><StatusBadge value={it.severity.toLowerCase()} label={it.severity} /></td>
                       <td className="px-2 py-2.5"><ConfidenceBar v={it.ai_confidence} /></td>
                       <td className="px-2 py-2.5"><StatusBadge value={it.status === "in_progress" ? "in_progress" : "open"} label={it.status === "in_progress" ? "In Progress" : "Open"} /></td>
-                      <td className="px-2"><button onClick={() => clearIssue(it.id)} className="text-xs font-semibold text-primary hover:underline">{it.next_action}</button></td>
+                      <td className="px-2" onClick={(e) => e.stopPropagation()}><button onClick={() => advanceIssue(it)} className="text-xs font-semibold text-primary hover:underline">{it.status === "in_progress" ? "Resolve" : "Investigate"}</button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div className="flex items-center justify-between px-2 pt-3 text-sm text-text2">
-                <PaginationFooter page={page} pageSize={8} total={data?.issues.total ?? 0} onPage={setPage} unit="issues" />
               </div>
+              {!showAll && (
+                <div className="flex items-center justify-between px-2 pt-3 text-sm text-text2">
+                  <PaginationFooter page={page} pageSize={8} total={data?.issues.total ?? 0} onPage={setPage} unit="issues" />
+                </div>
+              )}
             </div>
           </Card>
 
@@ -149,7 +178,7 @@ export function DataQuality() {
             <div className="mb-3 flex items-center justify-between"><h3 className="text-base font-semibold text-text1">Evidence Quality Overview</h3><button onClick={() => toast.message("Available in the full release")} className="text-xs font-semibold text-primary hover:underline">View details →</button></div>
             <div className="grid grid-cols-3 gap-3">
               {(data?.evidence_overview ?? []).map((e, i) => (
-                <div key={e.key} className="rounded-card border border-border p-3 text-center" style={{ backgroundColor: ["#FDEBEC", "#FEF3E2", "#E7F6FE"][i] }}>
+                <div key={e.key} className={cn("rounded-card border border-border p-3 text-center", ["bg-danger-bg", "bg-warning-bg", "bg-info-bg"][i])}>
                   <div className="text-2xl font-bold text-text1">{fmt(e.count)}</div>
                   <div className="text-xs font-semibold text-text2">{e.label}</div>
                   <div className="mt-1 text-[10px] text-text3">Across {e.entities} entities · {e.pct}% of total records</div>
@@ -171,12 +200,18 @@ export function DataQuality() {
             <h3 className="mb-3 text-base font-semibold text-text1">Quick Actions</h3>
             <div className="space-y-2">
               {[
-                { icon: <ClipboardCheck size={16} />, title: "Review Issues", sub: "Open the full validation issues queue" },
-                { icon: <Users size={16} />, title: "Assign Analyst", sub: "Assign issues to data analysts" },
-                { icon: <Send size={16} />, title: "Send Back to Entity", sub: "Request entity to address issues" },
-                { icon: <CheckCheck size={16} />, title: "Mark as Cleared", sub: "Mark selected issues as cleared" },
+                { icon: <ClipboardCheck size={16} />, title: "Review Issues", sub: "Open the full validation issues queue", onClick: () => { setShowAll(true); setPage(1); } },
+                { icon: <Users size={16} />, title: "Assign Analyst", sub: "Assign issues to data analysts", onClick: () => toast.message("Assign an analyst from any issue row — analyst assignment view coming to the queue.") },
+                { icon: <Send size={16} />, title: "Send Back to Entity", sub: "Request entity to address issues", onClick: () => navigate("/dghr/clarifications") },
+                { icon: <CheckCheck size={16} />, title: "Mark as Cleared", sub: "Resolve all issues under investigation", onClick: async () => {
+                  const inProg = (data?.issues.items ?? []).filter((i) => i.status === "in_progress");
+                  if (!inProg.length) return toast.message("No in-progress issues to clear. Click Investigate on an issue first.");
+                  await Promise.all(inProg.map((i) => api.patchIssue(i.id, { status: "cleared" })));
+                  qc.invalidateQueries({ queryKey: ["quality"] });
+                  toast.success(`Cleared ${inProg.length} resolved issue${inProg.length > 1 ? "s" : ""}.`);
+                } },
               ].map((a) => (
-                <button key={a.title} onClick={() => toast.message("Wired in Phase 3.")} className="flex w-full items-center gap-2.5 rounded-lg border border-border p-2.5 text-left hover:bg-page">
+                <button key={a.title} onClick={a.onClick} className="flex w-full items-center gap-2.5 rounded-lg border border-border p-2.5 text-left hover:bg-page">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-info-bg text-info">{a.icon}</span>
                   <div className="flex-1"><div className="text-sm font-semibold text-text1">{a.title}</div><div className="text-[11px] text-text3">{a.sub}</div></div>
                 </button>
@@ -191,11 +226,59 @@ export function DataQuality() {
         </div>
       </PageBody>
 
+      {/* issue drawer (MD-03) */}
+      <Drawer open={issueId != null} onClose={() => setIssueId(null)} title="Validation Issue" width={460}>
+        {iss && (
+          <div className="space-y-4">
+            <div className="rounded-card border border-border bg-card p-4">
+              <div className="flex items-center gap-2">{sevIcon(iss.severity)}<span className="font-semibold text-text1">{iss.issue_type}</span></div>
+              <div className="mt-1 text-xs text-text3">{iss.entity} · {PKG_LABEL[iss.package_key] ?? iss.package_key}</div>
+              <div className="mt-2 flex items-center gap-2">
+                <StatusBadge value={iss.severity.toLowerCase()} label={iss.severity} />
+                <span className="text-xs text-text2">AI confidence {iss.ai_confidence}%</span>
+                <StatusBadge value={iss.status === "in_progress" ? "in_progress" : iss.status === "cleared" ? "mapped" : "open"} label={iss.status === "in_progress" ? "In Progress" : iss.status === "cleared" ? "Cleared" : "Open"} />
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-2 text-sm font-semibold text-text1">Sample affected records ({iss.samples.length})</div>
+              <div className="space-y-1.5">
+                {iss.samples.length === 0 && <div className="text-xs text-text3">No sampled records available for this issue.</div>}
+                {iss.samples.map((s, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded-lg border border-border p-2 text-xs">
+                    <AlertTriangle size={14} className="shrink-0 text-warning" />
+                    <div className="flex-1"><div className="font-medium text-text1">{s.label}</div><div className="text-text3">{s.detail}</div></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1 text-sm font-semibold text-text1">Assign Analyst</div>
+              <select
+                value={iss.assigned_to ?? ""}
+                onChange={(e) => e.target.value && assignAnalyst(Number(e.target.value))}
+                className="select-field h-9 w-full rounded-btn border border-border bg-card px-2 text-sm"
+              >
+                <option value="">Unassigned</option>
+                {iss.reviewers.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+              </select>
+              {iss.assigned_to_name && <div className="mt-1 text-[11px] text-text3">Currently: {iss.assigned_to_name}</div>}
+            </div>
+
+            <div className="space-y-2 border-t border-border pt-3">
+              <Button variant="secondary" className="w-full" onClick={sendBack}><Send size={15} /> Send Back to Entity</Button>
+              <Button className="w-full" onClick={async () => { await api.patchIssue(iss.id, { status: "cleared" }); qc.invalidateQueries(); toast.success("Issue cleared."); setIssueId(null); }}><CheckCircle2 size={15} /> Mark as Cleared</Button>
+            </div>
+          </div>
+        )}
+      </Drawer>
+
       {/* anomaly drawer */}
       <Drawer open={anomaly != null} onClose={() => setAnomaly(null)} title="AI-Detected Anomaly" width={440}>
         {anomaly && (
           <div className="space-y-4">
-            <div className="rounded-card border border-border bg-white p-4">
+            <div className="rounded-card border border-border bg-card p-4">
               <div className="flex items-center gap-2">{sevIcon(anomaly.severity)}<span className="font-semibold text-text1">{anomaly.title}</span></div>
               <div className="mt-1 text-xs text-text3">{anomaly.entity} · {PKG_LABEL[anomaly.package_key] ?? anomaly.package_key}</div>
               <div className="mt-2 flex items-center gap-2"><StatusBadge value={anomaly.severity.toLowerCase()} label={anomaly.severity} /><span className="text-xs text-text2">AI confidence {anomaly.confidence}%</span></div>

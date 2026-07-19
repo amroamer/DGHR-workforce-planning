@@ -8,8 +8,8 @@ import { usePersona } from "@/stores/persona";
 export function PlaceholderPage({ title }: { title: string }) {
   const navigate = useNavigate();
   const { persona } = usePersona();
-  const home = persona.type === "dghr" ? "/dghr/command-center" : "/entity/home";
-  const homeLabel = persona.type === "dghr" ? "Command Center" : "Home";
+  const home = persona.type === "dghr" ? "/dghr/government" : "/entity/departments";
+  const homeLabel = persona.type === "dghr" ? "Government Position" : "Departments";
   return (
     <div className="mx-auto max-w-3xl pt-8">
       <div className="rounded-card border border-border bg-card shadow-card">

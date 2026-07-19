@@ -4,10 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Boxes, ClipboardList, FileText, CalendarDays, Network, Users, ArrowLeftRight,
-  BarChart3, Target, Award, Coins, Maximize2, MoreHorizontal, ChevronRight, Eye, Save, Send,
-  Headphones, Search, Cpu, Rocket, Database, CheckCircle2,
+  BarChart3, Target, Award, Coins, Maximize2, ChevronRight, Eye, Send,
+  Headphones, Search, Cpu, Rocket, Database, CheckCircle2, Plus, Pencil, SlidersHorizontal,
+  Eye as EyeIcon, Ban, Trash2,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { usePersona } from "@/stores/persona";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageBody } from "@/components/shared/AppShell";
@@ -15,6 +17,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/shared/KpiCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { RowMenu } from "@/components/shared/Dropdown";
+import { PackageDialog, CycleDialog } from "./ConfigDialogs";
+import { Drawer } from "@/components/ui/drawer";
 import type { ConfigPackage } from "@/lib/types";
 
 const PKG_ICON: Record<string, React.ReactNode> = {
@@ -35,8 +40,7 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
       role="switch"
       aria-checked={on}
       aria-label={`${on ? "Disable" : "Enable"} mandatory fields for ${label}`}
-      className="relative h-5 w-9 rounded-full transition-colors"
-      style={{ backgroundColor: on ? "#2563EB" : "#CBD5E1" }}
+      className={cn("relative h-5 w-9 rounded-full transition-colors duration-fast", on ? "bg-primary" : "bg-border-strong")}
     >
       <span className="absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all" style={{ left: on ? 18 : 2 }} />
     </button>
@@ -48,6 +52,9 @@ export function DataCollection() {
   const navigate = useNavigate();
   const { setPersona } = usePersona();
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [pkgDialog, setPkgDialog] = useState<{ open: boolean; pkg: ConfigPackage | null }>({ open: false, pkg: null });
+  const [cycleOpen, setCycleOpen] = useState(false);
+  const [sectionType, setSectionType] = useState<string | null>(null);
   const { data } = useQuery({ queryKey: ["config"], queryFn: api.config });
 
   const toggleExpand = (id: number) => setExpanded((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -55,6 +62,12 @@ export function DataCollection() {
     await api.patchPackage(p.id, !p.mandatory_enabled);
     qc.invalidateQueries({ queryKey: ["config"] });
     toast.success(`${p.name} mandatory fields ${!p.mandatory_enabled ? "enabled" : "disabled"}.`);
+  };
+  const delPackage = async (p: ConfigPackage) => {
+    if (!window.confirm(`Remove the "${p.name}" package from this cycle? This detaches it from all entities.`)) return;
+    await api.deletePackage(p.id);
+    qc.invalidateQueries({ queryKey: ["config"] });
+    toast.success(`${p.name} package removed.`);
   };
   const publish = async () => {
     const r = await api.publishConfig();
@@ -76,10 +89,10 @@ export function DataCollection() {
         {/* Cycle bar */}
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-text2">Current Collection Cycle</span>
-          <div className="flex items-center gap-2 rounded-btn border border-border bg-white px-3 py-2 text-sm font-semibold text-text1">
+          <div className="flex items-center gap-2 rounded-btn border border-border bg-card px-3 py-2 text-sm font-semibold text-text1">
             {c?.name ?? "…"} <ChevronRight size={14} className="rotate-90 text-text3" />
           </div>
-          <button className="flex h-9 w-9 items-center justify-center rounded-btn border border-border text-text2"><CalendarDays size={16} /></button>
+          <button aria-label="Cycle calendar" className="flex h-9 w-9 items-center justify-center rounded-btn border border-border text-text2"><CalendarDays size={16} /></button>
           {c && <StatusBadge value="active" label="● Active" />}
           {c && <span className="text-sm text-text3">{c.starts_on} – {c.ends_on}</span>}
         </div>
@@ -97,9 +110,14 @@ export function DataCollection() {
           <Card className="col-span-8">
             <div className="flex items-center justify-between px-5 pt-5">
               <h3 className="text-base font-semibold text-text1">Data Packages <span className="text-text3">(Configuration Overview)</span></h3>
-              <Button variant="secondary" size="sm" onClick={() => setExpanded(expanded.size ? new Set() : new Set(data?.packages.map((p) => p.id)))}>
-                <Maximize2 size={14} /> Expand All
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={() => setExpanded(expanded.size ? new Set() : new Set(data?.packages.map((p) => p.id)))}>
+                  <Maximize2 size={14} /> Expand All
+                </Button>
+                <Button size="sm" onClick={() => setPkgDialog({ open: true, pkg: null })}>
+                  <Plus size={14} /> Add Package
+                </Button>
+              </div>
             </div>
             <div className="p-3">
               <div className="grid grid-cols-[1fr_70px_92px_90px_100px_90px_28px] gap-2 px-2 py-2 text-[11px] font-semibold uppercase text-text3">
@@ -108,10 +126,10 @@ export function DataCollection() {
               {(data?.packages ?? []).map((p, i) => (
                 <div key={p.id} className="rounded-lg border border-transparent hover:border-border">
                   <div className="grid grid-cols-[1fr_70px_92px_90px_100px_90px_28px] items-center gap-2 px-2 py-2.5">
-                    <div className="flex items-center gap-2.5">
+                    <button className="flex items-center gap-2.5 text-left" onClick={() => toggleExpand(p.id)}>
                       <span className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ backgroundColor: PKG_TONE[i % PKG_TONE.length] }}>{PKG_ICON[p.icon_key]}</span>
                       <div><div className="text-sm font-semibold text-text1">{p.position}. {p.name}</div><div className="text-[11px] text-text3 line-clamp-1">{p.description}</div></div>
-                    </div>
+                    </button>
                     <span className="text-sm text-text2">{p.total_fields} fields</span>
                     <span className="flex items-center gap-1.5 text-sm text-text2">
                       {p.mandatory_fields}/{p.optional_fields}
@@ -120,7 +138,12 @@ export function DataCollection() {
                     <span className="text-xs"><StatusBadge value={p.evidence_required === "yes" ? "mapped" : "partial"} label={p.evidence_required === "yes" ? "Yes" : "Optional"} /><div className="mt-0.5 text-[10px] text-text3">{p.evidence_fields_label}</div></span>
                     <span className="text-xs text-text3" title={p.section_types.join(", ")}>{p.section_types.length} types</span>
                     <StatusBadge value="configured" label="Configured" />
-                    <button onClick={() => toggleExpand(p.id)} className="text-text3 hover:text-text1"><MoreHorizontal size={16} /></button>
+                    <RowMenu label={`Actions for ${p.name}`} items={[
+                      { label: "Edit package", icon: <Pencil size={15} />, onClick: () => setPkgDialog({ open: true, pkg: p }) },
+                      { label: "Preview as entity", icon: <EyeIcon size={15} />, onClick: previewEntity },
+                      { label: p.mandatory_enabled ? "Disable mandatory" : "Enable mandatory", icon: <Ban size={15} />, onClick: () => patchToggle(p) },
+                      { label: "Remove package", icon: <Trash2 size={15} />, tone: "danger", onClick: () => delPackage(p) },
+                    ]} />
                   </div>
                   {expanded.has(p.id) && (
                     <div className="flex flex-wrap gap-1.5 px-2 pb-3 pl-14">
@@ -139,15 +162,16 @@ export function DataCollection() {
             <Card className="p-5">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-text1">Section-Type Templates</h3>
-                <button onClick={() => toast.message("Available in the full release")} className="text-xs font-semibold text-primary hover:underline">Manage →</button>
+                <button onClick={() => toast.message("Choose which section types apply when you add or edit a package.")} className="text-xs font-semibold text-primary hover:underline">Manage →</button>
               </div>
               <div className="space-y-1.5">
                 {(data?.section_types ?? []).map((s) => (
-                  <div key={s.name} className="flex items-center gap-2.5 rounded-lg border border-border px-3 py-2">
+                  <button key={s.name} onClick={() => setSectionType(s.name)} className="flex w-full items-center gap-2.5 rounded-lg border border-border px-3 py-2 text-left hover:bg-page">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy-900 text-white">{ST_ICON[s.name]}</span>
                     <div className="flex-1"><div className="text-sm font-semibold text-text1">{s.name}</div><div className="text-[11px] text-text3">{s.description}</div></div>
                     <StatusBadge value="active" label="Active" />
-                  </div>
+                    <ChevronRight size={14} className="text-text3" />
+                  </button>
                 ))}
               </div>
             </Card>
@@ -155,7 +179,7 @@ export function DataCollection() {
             <Card className="p-5">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-text1">Configuration Options</h3>
-                <button onClick={() => toast.success("Deadline editing available (demo).")} className="text-xs font-semibold text-primary hover:underline">Edit</button>
+                <button onClick={() => setCycleOpen(true)} className="text-xs font-semibold text-primary hover:underline">Edit</button>
               </div>
               <div className="space-y-2.5 text-sm">
                 {[
@@ -179,10 +203,38 @@ export function DataCollection() {
         {/* footer */}
         <div className="mt-4 flex items-center gap-3">
           <Button variant="secondary" onClick={previewEntity}><Eye size={16} /> Preview Entity View</Button>
-          <Button variant="secondary" onClick={() => toast.success("Configuration saved.")}><Save size={16} /> Save Configuration</Button>
+          <Button variant="secondary" onClick={() => setCycleOpen(true)}><SlidersHorizontal size={16} /> Cycle Settings</Button>
           <Button className="ml-auto" onClick={publish}><Send size={16} /> Publish Request Package</Button>
         </div>
       </PageBody>
+
+      <PackageDialog
+        open={pkgDialog.open}
+        pkg={pkgDialog.pkg}
+        allSectionTypes={(data?.section_types ?? []).map((s) => s.name)}
+        onClose={() => setPkgDialog({ open: false, pkg: null })}
+      />
+      {c && <CycleDialog open={cycleOpen} cycle={c} onClose={() => setCycleOpen(false)} />}
+
+      {/* CFG-07 section-type drawer: read-only list of packages that apply to this type */}
+      <Drawer open={sectionType != null} onClose={() => setSectionType(null)} title={`Section Type — ${sectionType ?? ""}`} width={420}>
+        {sectionType && (
+          <div className="space-y-3">
+            <p className="text-sm text-text2">Data packages that apply to <span className="font-semibold text-text1">{sectionType}</span> sections:</p>
+            <div className="space-y-1.5">
+              {(data?.packages ?? []).filter((p) => p.section_types.includes(sectionType)).map((p) => (
+                <div key={p.id} className="flex items-center gap-2 rounded-lg border border-border p-2.5 text-sm">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg text-white" style={{ backgroundColor: PKG_TONE[p.position % PKG_TONE.length] }}>{PKG_ICON[p.icon_key]}</span>
+                  <div className="flex-1"><div className="font-semibold text-text1">{p.name}</div><div className="text-[11px] text-text3">{p.total_fields} fields</div></div>
+                </div>
+              ))}
+              {(data?.packages ?? []).filter((p) => p.section_types.includes(sectionType)).length === 0 && (
+                <div className="text-sm text-text3">No packages currently target this section type.</div>
+              )}
+            </div>
+          </div>
+        )}
+      </Drawer>
     </>
   );
 }

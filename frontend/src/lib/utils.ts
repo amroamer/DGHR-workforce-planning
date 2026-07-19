@@ -7,14 +7,15 @@ export function cn(...inputs: ClassValue[]) {
 
 const nf = new Intl.NumberFormat("en-AE");
 
-/** Format a number with en-AE grouping (SPEC §17). */
+/** Format a number with en-AE grouping (SPEC §17). Missing values use the em-dash "—",
+ *  the single dash style used app-wide for empty markers (§4.3). */
 export function fmt(n: number | null | undefined): string {
-  if (n === null || n === undefined) return "–";
+  if (n === null || n === undefined) return "—";
   return nf.format(n);
 }
 
 export function pct(n: number | null | undefined, digits = 0): string {
-  if (n === null || n === undefined) return "–";
+  if (n === null || n === undefined) return "—";
   return `${n.toFixed(digits)}%`;
 }
 

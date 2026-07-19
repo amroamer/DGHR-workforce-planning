@@ -2,6 +2,16 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Apply the saved theme before first paint to avoid a light flash on a dark reload.
+      try {
+        var t = localStorage.getItem("dghr.theme");
+        document.documentElement.setAttribute("data-theme", t === "dark" ? "dark" : "light");
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=1280" />
     <title>DGHR Workforce Planning Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />

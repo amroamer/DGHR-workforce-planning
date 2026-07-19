@@ -10,7 +10,7 @@ Read APPLICATION_CONTEXT.md first (what the product is), then SPEC.md in full (w
 ## Hard rules
 - Never hardcode a metric, count, or percentage in JSX — every number comes from the API (grep-audited at phase gates 1/2/5).
 - Mockup static copy is verbatim; all other copy uses APPLICATION_CONTEXT vocabulary and the analyst insight voice (§4.4).
-- Exactly three live AI features (SPEC §13); everything else AI-flavored is referenced capability with a fallback, never faked.
+- Live AI features are ONLY those listed in SPEC §13/§13.1 (original three + the July-2026 expansion: Smart Assist, report narrative, clarification drafting, review brief, client-side voice capture). Every one follows the same contract — live-or-deterministic-fallback with a `source` badge; anything else AI-flavored is referenced capability with a fallback, never faked.
 - Layer B is NOT built except the labeled §9.5 teaser.
 
 ## Tech stack (locked, no substitutions — SPEC §2)

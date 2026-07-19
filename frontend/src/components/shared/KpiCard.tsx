@@ -30,37 +30,33 @@ function useCountUp(target: number, duration = 550): number {
 
 export type KpiTone = "blue" | "green" | "orange" | "teal" | "red" | "purple";
 
-const TONE: Record<KpiTone, { fg: string; bg: string }> = {
-  blue: { fg: "#2563EB", bg: "#DBEAFE" },
-  green: { fg: "#16A34A", bg: "#E8F7EE" },
-  orange: { fg: "#EA8A00", bg: "#FEF3E2" },
-  teal: { fg: "#0D9488", bg: "#E6F7F4" },
-  red: { fg: "#E11D48", bg: "#FDEBEC" },
-  purple: { fg: "#7C3AED", bg: "#F1EAFE" },
+// Named tones map to semantic tokens so both light and dark come from the same source.
+const TONE_VAR: Record<KpiTone, string> = {
+  blue: "primary", green: "success", orange: "warning", teal: "teal", red: "danger", purple: "purple",
 };
+const toneFg = (t: KpiTone) => `rgb(var(--${TONE_VAR[t]}))`;
+const toneBg = (t: KpiTone) => `rgb(var(--${TONE_VAR[t]}) / 0.14)`;
 
 function Ring({ pct, tone }: { pct: number; tone: KpiTone }) {
-  const { fg } = TONE[tone];
   const shown = Math.round(pct);
   const r = 24;
   const c = 2 * Math.PI * r;
   const dash = (Math.min(100, Math.max(0, shown)) / 100) * c;
   return (
     <svg width="56" height="56" viewBox="0 0 56 56" className="shrink-0">
-      <circle cx="28" cy="28" r={r} fill="none" stroke="#E6EAF2" strokeWidth="6" />
+      <circle cx="28" cy="28" r={r} fill="none" strokeWidth="6" style={{ stroke: "rgb(var(--border))" }} />
       <circle
         cx="28"
         cy="28"
         r={r}
         fill="none"
-        stroke={fg}
         strokeWidth="6"
         strokeLinecap="round"
         strokeDasharray={`${dash} ${c}`}
         transform="rotate(-90 28 28)"
-        style={{ transition: "stroke-dasharray 500ms ease-out" }}
+        style={{ stroke: toneFg(tone), transition: "stroke-dasharray 500ms ease-out" }}
       />
-      <text x="28" y="32" textAnchor="middle" className="fill-text1 text-[13px] font-bold">
+      <text x="28" y="32" textAnchor="middle" className="nums fill-text1 text-[13px] font-bold">
         {shown}%
       </text>
     </svg>
@@ -79,7 +75,7 @@ function KpiValue({ value }: { value: React.ReactNode }) {
     return <div className="h-7 w-16 animate-pulse rounded bg-page" />;
   }
   return (
-    <div className="text-[26px] font-bold leading-tight text-text1">
+    <div className="nums text-[26px] font-bold leading-tight text-text1">
       {typeof value === "number" ? <AnimatedNumber n={value} /> : value}
     </div>
   );
@@ -106,11 +102,10 @@ export function KpiCard({
   link,
   className,
 }: KpiCardProps) {
-  const t = TONE[tone];
   return (
     <div
       className={cn(
-        "flex items-start gap-3 rounded-card border border-border bg-card p-4 shadow-card",
+        "flex items-start gap-3 rounded-card border border-border bg-card p-4 shadow-card transition-colors duration-card hover:border-border-strong",
         className,
       )}
     >
@@ -119,7 +114,7 @@ export function KpiCard({
       ) : (
         <div
           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
-          style={{ backgroundColor: t.bg, color: t.fg }}
+          style={{ backgroundColor: toneBg(tone), color: toneFg(tone) }}
         >
           {icon}
         </div>

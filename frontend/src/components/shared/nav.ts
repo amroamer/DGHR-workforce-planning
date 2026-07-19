@@ -1,20 +1,19 @@
 import {
-  LayoutGrid,
-  Building2,
-  ClipboardList,
-  Send,
-  ShieldCheck,
-  TrendingUp,
-  Bell,
+  Globe,
   BarChart3,
   Settings,
   BookOpen,
-  Home,
+  Network,
   FileStack,
   FolderClosed,
   Calendar,
   LifeBuoy,
-  MessageSquareWarning,
+  Layers,
+  TriangleAlert,
+  LayoutDashboard,
+  TrendingUp,
+  GraduationCap,
+  History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,30 +23,30 @@ export interface NavItem {
   icon: LucideIcon;
   badgeKey?: "open_cases"; // dynamic badge
   activeAlso?: string[]; // extra paths that keep this item highlighted
+  group?: string; // optional section label rendered above the first item of a group
 }
 
-// DGHR nav (fixed order — SPEC §4.2). Submissions stays highlighted on /dghr/clarifications.
+// DGHR nav — the department + sizing model. The three executive dashboards sit ON TOP (DGHR-only),
+// then everything flows from Government Position.
 export const DGHR_NAV: NavItem[] = [
-  { label: "Command Center", to: "/dghr/command-center", icon: LayoutGrid },
-  { label: "Entities", to: "/dghr/entities", icon: Building2 },
-  { label: "Data Collection", to: "/dghr/data-collection", icon: ClipboardList },
-  { label: "Submissions", to: "/dghr/submissions", icon: Send, activeAlso: ["/dghr/clarifications"] },
-  { label: "Data Quality", to: "/dghr/data-quality", icon: ShieldCheck },
-  { label: "Forecasting Readiness", to: "/dghr/forecasting-readiness", icon: TrendingUp },
-  { label: "Alerts & AI Flags", to: "/dghr/alerts", icon: Bell },
+  { label: "Human Capital Overview", to: "/dghr/hc-overview", icon: LayoutDashboard, group: "Executive Dashboards" },
+  { label: "Demand Analysis", to: "/dghr/demand-analysis", icon: TrendingUp },
+  { label: "Supply Analysis", to: "/dghr/supply-analysis", icon: GraduationCap },
+  { label: "Government-Wide Position", to: "/dghr/government", icon: Globe, group: "Workforce Planning", activeAlso: ["/dghr/gov-entity", "/dghr/gov-submission"] },
+  { label: "Method & Typesets", to: "/dghr/method", icon: Layers },
+  { label: "Alerts & Smart Flags", to: "/dghr/alerts", icon: TriangleAlert },
   { label: "Reports", to: "/dghr/reports", icon: BarChart3 },
   { label: "Admin", to: "/dghr/admin", icon: Settings },
+  { label: "Cycle History", to: "/dghr/cycles", icon: History },
   { label: "Knowledge Center", to: "/dghr/knowledge", icon: BookOpen },
 ];
 
-// Entity nav (fixed order — SPEC §4.2). Clarifications badge = open cases.
+// Entity nav — departments replace the old packages.
 export const ENTITY_NAV: NavItem[] = [
-  { label: "Home", to: "/entity/home", icon: Home },
-  { label: "My Submissions", to: "/entity/my-submissions", icon: FileStack },
-  { label: "Data Collection", to: "/entity/org-structure", icon: ClipboardList, activeAlso: ["/entity/workforce", "/entity/workload", "/entity/demand-drivers"] },
-  { label: "Clarifications", to: "/entity/clarifications", icon: MessageSquareWarning, badgeKey: "open_cases" },
+  { label: "Departments", to: "/entity/departments", icon: Network, activeAlso: ["/entity/departments/"] },
+  { label: "My Submissions", to: "/entity/submissions", icon: FileStack },
   { label: "Reports", to: "/entity/reports", icon: BarChart3 },
   { label: "Documents", to: "/entity/documents", icon: FolderClosed },
-  { label: "Calendar", to: "/entity/calendar", icon: Calendar },
+  { label: "Programme & Wave Management", to: "/entity/calendar", icon: Calendar },
   { label: "Help & Support", to: "/entity/help", icon: LifeBuoy },
 ];

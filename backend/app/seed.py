@@ -943,5 +943,27 @@ def run_seed() -> None:
         db.close()
 
 
-if __name__ == "__main__":
+def seed_if_empty() -> None:
+    """Seed only when the DB has no entities yet.
+
+    Used at container startup so author-created data survives restarts. The full
+    destructive `run_seed()` stays wired to the manual `POST /api/demo/reset`.
+    """
+    Base.metadata.create_all(bind=engine)
+    db = SessionLocal()
+    try:
+        if db.query(m.Entity).count() > 0:
+            print("[seed] data already present — skipping seed (use /api/demo/reset to rebuild)")
+            return
+    finally:
+        db.close()
     run_seed()
+
+
+if __name__ == "__main__":
+    import sys
+
+    if "--if-empty" in sys.argv:
+        seed_if_empty()
+    else:
+        run_seed()
