@@ -34,7 +34,7 @@ export default {
         teal: { DEFAULT: withVar("--teal"), bg: withVar("--teal-bg") },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        sans: ["Dubai", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
       },
       // Radius scale (§4.4): cards 14–16, inputs/buttons 8–10, small 8, modal 16–20.
       borderRadius: {

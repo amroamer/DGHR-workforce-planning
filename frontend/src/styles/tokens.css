@@ -3,6 +3,42 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════════════════════════
+ * DUBAI — the official Dubai Government typeface (Latin + Arabic), self-hosted
+ * under /public/fonts so the app carries no external font dependency. Shipped
+ * weights: Light 300, Regular 400, Medium 500, Bold 700. Dubai has no Semibold,
+ * so font-weight 600 (Tailwind `font-semibold`, used across the UI) maps to
+ * Medium via the 500–600 range — one clean step below Bold.
+ * ═══════════════════════════════════════════════════════════════════════════ */
+@font-face {
+  font-family: "Dubai";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("/fonts/Dubai-Light.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Dubai";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Dubai-Regular.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Dubai";
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+  src: url("/fonts/Dubai-Medium.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Dubai";
+  font-style: normal;
+  font-weight: 700 900;
+  font-display: swap;
+  src: url("/fonts/Dubai-Bold.woff2") format("woff2");
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
  * DESIGN TOKENS — single source of truth for the whole visual system.
  *
  * Stored as space-separated RGB *channels* (not hex) so Tailwind can apply
@@ -168,7 +204,7 @@ body,
 
 body {
   margin: 0;
-  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Dubai", system-ui, -apple-system, "Segoe UI", sans-serif;
   background: rgb(var(--page-bg));
   color: rgb(var(--text-1));
   -webkit-font-smoothing: antialiased;
