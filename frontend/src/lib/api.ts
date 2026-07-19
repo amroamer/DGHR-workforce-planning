@@ -379,6 +379,39 @@ export const api = {
     request<{ answer: string; source: string }>("/api/ai/ask", {
       method: "POST", body: JSON.stringify({ question, history, scenario }),
     }),
+  // Streaming variant — reads NDJSON ({"delta"} chunks then {"done","source"}) and calls onDelta per
+  // token. Resolves with the source once the stream ends.
+  aiAskStream: async (
+    body: { question: string; scope?: "gov" | "entity"; entity_id?: number; scenario?: string;
+            history?: { role: "user" | "assistant"; content: string }[] },
+    onDelta: (text: string) => void,
+  ): Promise<{ source: string }> => {
+    const res = await fetch(`${BASE}/api/ai/ask/stream`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (!res.ok || !res.body) throw new ApiError(res.status, res.statusText);
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = "";
+    let source = "fallback";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let nl: number;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        try {
+          const obj = JSON.parse(line) as { delta?: string; done?: boolean; source?: string };
+          if (obj.delta) onDelta(obj.delta);
+          if (obj.done && obj.source) source = obj.source;
+        } catch { /* ignore a partial line */ }
+      }
+    }
+    return { source };
+  },
   aiDraftClarification: (body: {
     submission_id: number; direction: "question" | "reply";
     element_type?: string; element_key?: string; element_label?: string; clarification_id?: number;

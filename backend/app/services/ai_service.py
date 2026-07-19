@@ -309,7 +309,8 @@ def ask_data_stream(pack: dict | None, question: str, history: list[dict] | None
     the stream can outlive it. Any live-call error falls through to the deterministic answer."""
     question = (question or "").strip()
     if pack is None or not question:
-        yield json.dumps({"delta": "There's no submitted data to answer from yet." if not question else ""}) + "\n"
+        msg = "" if not question else "There's no submitted data to answer from yet."
+        yield json.dumps({"delta": msg}) + "\n"
         yield json.dumps({"done": True, "source": "empty"}) + "\n"
         return
     if _live_enabled():

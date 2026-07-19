@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { NarrativeCard } from "@/components/shared/NarrativeCard";
+import { AskDataPanel } from "@/components/shared/AskDataPanel";
 import { THEAD_TR, TH, TH_NUM, TROW, TD, TD_NUM } from "@/components/ui/table";
 import { GapPill, StatCard, HcTiles, LevelBar, ProjectedGapChart, ProjectedGapTable, SmartRemarkCell, DistributionBars, fmtFte } from "./widgets";
 import { NatureOfSurplusDeficit } from "@/components/shared/NatureOfSurplusDeficit";
@@ -60,6 +61,9 @@ export function PlanningEntityReports() {
             <NarrativeCard
               hint="A written read of your report — coverage, the gap, where it concentrates, and what to do next."
               generate={() => api.aiReportNarrative("entity", entityId!)} />
+
+            {/* Ask-the-data chat scoped to this entity — grounded in the same figures on this page. */}
+            <AskDataPanel scope="entity" entityId={entityId!} />
 
             <div className="mb-4">
               <Card>
