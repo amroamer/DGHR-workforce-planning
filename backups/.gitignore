@@ -1,0 +1,3 @@
+# Local DB dumps from scripts/db-backup.sh — never commit data snapshots.
+*
+!.gitignore

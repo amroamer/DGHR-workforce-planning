@@ -51,7 +51,7 @@ def meta_entities(db: Session = Depends(get_db)) -> list[dict]:
     from app import models as m
 
     rows = db.query(m.Entity).order_by(m.Entity.name).all()
-    return [{"id": r.id, "name": r.name, "code": r.code, "wave": r.wave} for r in rows]
+    return [{"id": r.id, "name": r.name, "code": r.code, "wave": r.wave, "logo_url": r.logo_url} for r in rows]
 
 
 app.include_router(dghr.router)

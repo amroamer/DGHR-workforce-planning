@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { ChevronLeft, Users, Target, TrendingUp, ArrowUpRight, Inbox, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { EntityLogo } from "@/components/shared/EntityLogo";
 import { PageBody } from "@/components/shared/AppShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ export function PlanningDghrEntity() {
   return (
     <>
       <PageHeader title={data?.entity.name ?? "Entity"} subtitle="All departments and their submission status. Open any to see the full submission and take action."
+        leading={data?.entity ? <EntityLogo name={data.entity.name} code={data.entity.code} size={48} rounded="lg" /> : undefined}
         actions={<Button variant="secondary" size="sm" onClick={() => navigate("/dghr/government")}><ChevronLeft size={15} /> Government view</Button>} />
       <PageBody>
         <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">

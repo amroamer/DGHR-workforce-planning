@@ -142,7 +142,7 @@ def build_tracker(db: Session, *, wave=None, status=None, reviewer=None, package
         pm_ = pkg_map.get(e.id, {})
         rev = users.get(e.reviewer_id) if e.reviewer_id else None
         items.append({
-            "id": e.id, "name": e.name, "code": e.code, "wave": e.wave,
+            "id": e.id, "name": e.name, "code": e.code, "wave": e.wave, "logo_url": e.logo_url,
             "packages": {label: pm_.get(key) for key, label in PACKAGE_COLUMNS},
             "completeness": e.completeness, "status": e.status,
             "status_label": STATUS_LABELS.get(e.status, e.status),
@@ -371,6 +371,7 @@ def build_entity_detail(db: Session, entity_id: int) -> dict | None:
     rev = users.get(e.reviewer_id) if e.reviewer_id else None
     return {
         "id": e.id, "name": e.name, "code": e.code, "wave": e.wave, "status": e.status,
+        "logo_url": e.logo_url,
         "status_label": STATUS_LABELS.get(e.status, e.status),
         "completeness": e.completeness, "quality_score": e.quality_score,
         "overdue": e.overdue, "due_date": e.due_date.isoformat() if e.due_date else None,

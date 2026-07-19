@@ -128,7 +128,7 @@ export const api = {
     request<Record<string, { id: number; name: string }>>("/api/meta/persona-entities"),
 
   entitiesList: () =>
-    request<{ id: number; name: string; code: string; wave: string }[]>("/api/meta/entities"),
+    request<{ id: number; name: string; code: string; wave: string; logo_url: string | null }[]>("/api/meta/entities"),
 
   commandCenter: (page = 1, pageSize = 5) =>
     request<CommandCenterPayload>(

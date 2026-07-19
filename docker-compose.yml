@@ -23,6 +23,9 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       DEMO_AI_MODE: ${DEMO_AI_MODE:-fallback}
       MODEL_NAME: ${MODEL_NAME:-claude-sonnet-5}
+      # Destructive-reset guard. false = a reseed / POST /api/demo/reset REFUSES to wipe a populated
+      # DB (first-run seeding of an empty DB still works). Set true ONLY for a deliberate demo reset.
+      ALLOW_DB_RESET: ${ALLOW_DB_RESET:-false}
     ports:
       - "8010:8000"
     volumes:

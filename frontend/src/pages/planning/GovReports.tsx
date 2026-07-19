@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/shared/EmptyState";
 import { NarrativeCard } from "@/components/shared/NarrativeCard";
 import { GapPill, StatCard, HcTiles, LevelBar, ProjectedGapChart, ProjectedGapTable, fmtFte } from "./widgets";
 import { NatureOfSurplusDeficit } from "@/components/shared/NatureOfSurplusDeficit";
+import govMark from "@/assets/brand/government-of-dubai.png";
 
 // DGHR Reports — the government-wide roll-up in report form, with a real CSV export.
 // Every figure is computed from submitted data; nothing is hardcoded.
@@ -32,6 +33,11 @@ export function PlanningGovReports() {
       <PageHeader
         title="Reports"
         subtitle="Government-wide workforce report: current vs required, human capital and outlook across every entity."
+        leading={
+          <span className="inline-flex items-center rounded-lg bg-white px-2.5 py-1.5 ring-1 ring-black/5">
+            <img src={govMark} alt="Government of Dubai" className="h-8 w-auto object-contain" />
+          </span>
+        }
         actions={<Button size="sm" onClick={() => window.open(api.planning.govReportCsvUrl(scenario), "_blank")}>
           <Download size={15} /> Export CSV
         </Button>}

@@ -45,6 +45,11 @@ class Entity(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(160))
     code: Mapped[str] = mapped_column(String(16))
+    # Public path to the entity's brand mark (e.g. "/logos/dewa.png"), or NULL when no official
+    # asset is held — the UI then renders a deterministic initials chip. Seeded from the canonical
+    # code→file map in app.planning_seed.logo_url_for; the file lives in frontend/public/logos keyed
+    # by the slugified code.
+    logo_url: Mapped[str | None] = mapped_column(String(200), nullable=True)
     wave: Mapped[str] = mapped_column(String(4))  # W1|W2|W3
     reviewer_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     due_date: Mapped[date | None] = mapped_column(Date, nullable=True)

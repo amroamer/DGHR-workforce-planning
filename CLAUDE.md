@@ -19,8 +19,15 @@ Backend: Python 3.11+, FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2, uvicorn, p
 DB: PostgreSQL 16 (docker). Real-time sync = TanStack Query polling (4000ms) + /api/notifications/poll.
 
 ## Commands
-- `docker compose up` → postgres + backend + frontend (backend entrypoint runs `alembic upgrade head` then `python -m app.seed`).
-- `docker compose exec backend python -m app.seed` → re-seed (idempotent).
-- `docker compose exec backend python -m app.checks` → §7.7 consistency gate (must print ✓ per assertion).
+- `docker compose up` → postgres + backend + frontend (backend entrypoint runs `alembic upgrade head` then `python -m app.seed_clean --if-empty`).
+- `docker compose exec backend python -m app.checks` → consistency gate (must print ✓ per assertion). Validates the `app.seed_clean` / `planning_seed` scenario (12 entities), NOT the legacy `app.seed`.
 - Frontend dev: http://localhost:5183 · Backend: http://localhost:8010 · OpenAPI: http://localhost:8010/docs
   (host ports offset from defaults to avoid collisions with sibling projects; internal container ports unchanged)
+
+## Database safety — READ before touching the seed
+Postgres persists in the `pgdata` volume, so `docker compose up`/restart/rebuild never wipe data. The entrypoint seeds only when the DB is **empty** (`seed_clean --if-empty`), so a normal run never re-seeds. The ONLY things that destroy data are **explicitly destructive** and now refuse by default:
+- `app.seed_clean` is the real seed (12 entities from `planning_seed`); `app.seed` is a dead 59-entity legacy scenario. **Both TRUNCATE every table.**
+- A reseed / `POST /api/demo/reset` on a **populated** DB now **refuses** unless `ALLOW_DB_RESET=true` (backend env, default false). First-run seeding of an empty DB is unaffected.
+- Deliberate reset (wipes everything): set `ALLOW_DB_RESET=true`, or run `docker compose exec backend python -m app.seed_clean --force`. **Back up first.**
+- Backup / restore: `scripts/db-backup.sh` → `backups/dghr-<ts>.sql`; `scripts/db-restore.sh <file>` to restore. Always back up before any reset.
+- Never run `python -m app.seed` — it is the wrong (legacy) seed and it wipes real data.

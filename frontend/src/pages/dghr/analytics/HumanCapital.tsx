@@ -51,7 +51,7 @@ export function HumanCapitalOverview() {
                 <Panel className="h-full" title="Employment (FTEs)" live
                   subtitle={`${data.scope.label}, ${data.reporting_period.label}`}
                   action={<Segmented size="sm" value={view} options={[{ value: "total", label: "Total" }, { value: "level", label: "Job Level" }]} onChange={(v) => setView(v as "total" | "level")} />}>
-                  <EmploymentChart data={data.employment_series} animKey={ctrl.animKey}
+                  <EmploymentChart data={data.employment_series} animKey={`${ctrl.animKey}|${view}`}
                     byLevel={view === "level" ? data.employment_by_level : undefined} height={320} />
                 </Panel>
               </Reveal>

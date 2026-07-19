@@ -5,7 +5,9 @@ import { toast } from "sonner";
 import { Plus, Search, Pencil, Trash2, ArrowUpRight, Users, Target, TrendingUp, Inbox, AlertTriangle, Lock } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAudience } from "@/lib/hooks";
+import { usePersona } from "@/stores/persona";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { EntityLogo } from "@/components/shared/EntityLogo";
 import { Alert } from "@/components/ui/alert";
 import { PageBody } from "@/components/shared/AppShell";
 import { Card } from "@/components/ui/card";
@@ -35,6 +37,7 @@ const RECEIVED_SET = ["submitted", "in_clarification", "approved"];
 
 export function PlanningDepartments() {
   const { entityId } = useAudience();
+  const { persona } = usePersona();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -91,6 +94,7 @@ export function PlanningDepartments() {
   return (
     <>
       <PageHeader title="Departments" subtitle="Set up your departments, then submit each one's workforce drivers. The sizing is computed centrally."
+        leading={<EntityLogo name={persona.portalTitle} code={persona.code} size={48} rounded="lg" />}
         actions={<Button size="sm" onClick={openAdd} disabled={locked}><Plus size={15} /> Add Department</Button>} />
       <PageBody>
         {locked && (

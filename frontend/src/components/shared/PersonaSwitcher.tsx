@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, Check, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { PERSONAS, personaForEntity, usePersona, type Persona } from "@/stores/persona";
+import { EntityLogo } from "./EntityLogo";
 
 // Avatar chip → PersonaSwitcher (SPEC §4.2). Switching swaps the entire shell +
 // data scope instantly and persists (handled in the store). The DGHR admin plus a
@@ -46,9 +47,13 @@ export function PersonaSwitcher() {
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 rounded-full border border-border bg-card py-1 pl-1 pr-2.5 hover:bg-page"
       >
-        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-navy-900 text-[11px] font-bold text-white">
-          {persona.initials.slice(0, 2)}
-        </span>
+        {persona.type === "entity" ? (
+          <EntityLogo name={persona.portalTitle} code={persona.code} size={28} rounded="full" />
+        ) : (
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-navy-900 text-[11px] font-bold text-white">
+            {persona.initials.slice(0, 2)}
+          </span>
+        )}
         <span className="text-sm font-semibold text-text1">{persona.name}</span>
         <ChevronDown size={15} className="text-text3" />
       </button>
@@ -99,9 +104,7 @@ export function PersonaSwitcher() {
                     onClick={() => applyAndGo(personaForEntity(e))}
                     className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-page"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-navy-900 text-[10px] font-bold text-white">
-                      {(e.code || e.name).slice(0, 3).toUpperCase()}
-                    </span>
+                    <EntityLogo name={e.name} code={e.code} src={e.logo_url} size={32} rounded="full" />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-semibold text-text1">{e.name}</div>
                       <div className="text-xs text-text3">{e.code}, {e.wave}</div>

@@ -18,12 +18,17 @@ export function DemandAnalysis() {
   const [tab, setTab] = useState<"overview" | "jobs">("overview");
   const [view, setView] = useState<"total" | "level">("total");
   const [trend, setTrend] = useState<"growing" | "declining">("growing");
-  const { data, isPending, isPlaceholderData } = useQuery({
+  const { data, isPending, isPlaceholderData, refetch } = useQuery({
     queryKey: ["an-demand", ctrl.entityId, ctrl.basis, ctrl.scenario],
     queryFn: () => api.planning.analyticsDemand(ctrl.basis, ctrl.scenario, ctrl.entityId),
     refetchInterval: 4000,
     placeholderData: keepPreviousData, // filter switches morph in place, no loading flash
   });
+
+  // Landing on a tab pulls the latest figures and replays the entrance, so a live tab never
+  // looks frozen just because its data was fetched alongside the other tab's. The tab content
+  // remounts on switch (re-animating on its own); refetch keeps the numbers current on arrival.
+  const onTab = (v: "overview" | "jobs") => { setTab(v); refetch(); };
 
   const growing = (data?.growing_declining ?? []).filter((r) => r.pct_change > 0);
   const declining = (data?.growing_declining ?? []).filter((r) => r.pct_change < 0)
@@ -37,7 +42,7 @@ export function DemandAnalysis() {
       <PageBody>
         <ControlsBar ctrl={ctrl} bases={data?.bases} scenarios={data?.scenarios} />
         <div className="mb-5">
-          <PageTabs value={tab} options={[{ value: "overview", label: "Overview" }, { value: "jobs", label: "Jobs & Skills" }]} onChange={(v) => setTab(v as "overview" | "jobs")} />
+          <PageTabs value={tab} options={[{ value: "overview", label: "Overview" }, { value: "jobs", label: "Jobs & Skills" }]} onChange={(v) => onTab(v as "overview" | "jobs")} />
         </div>
 
         {!data && isPending ? (
@@ -53,7 +58,7 @@ export function DemandAnalysis() {
                     subtitle={`${data.scope.label}, sized from each department's own 12-month forecast`}
                     action={<Segmented size="sm" value={view} options={[{ value: "total", label: "Total" }, { value: "level", label: "Job Level" }]} onChange={(v) => setView(v as "total" | "level")} />}>
                     <EmploymentChart data={data.projected_employment} byLevel={view === "level" ? data.projected_by_level : undefined}
-                      barLabel="Projected employment" animKey={ctrl.animKey} />
+                      barLabel="Projected employment" animKey={`${ctrl.animKey}|${view}`} />
                   </Panel>
                 </Reveal>
                 <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

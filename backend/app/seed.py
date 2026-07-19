@@ -19,6 +19,16 @@ TODAY = date.today()
 
 # ───────────────────────────── helpers ─────────────────────────────
 def _reset_tables(db: Session) -> None:
+    # Safety: this TRUNCATEs every table. `app.seed` is the LEGACY 59-entity scenario and is NOT the
+    # seed this app runs (that is app.seed_clean). Refuse on a populated DB unless the reset is
+    # explicit, so an accidental `python -m app.seed` can't wipe real data (see CLAUDE.md).
+    from app.config import settings
+    if db.query(m.Entity).count() > 0 and not settings.allow_db_reset:
+        raise RuntimeError(
+            "Refusing to truncate: the database already contains data, and `app.seed` is the legacy "
+            "59-entity seed this app does NOT use (use app.seed_clean). To force a destructive reset "
+            "anyway, set ALLOW_DB_RESET=true. Back up first — see CLAUDE.md > Database safety."
+        )
     # Single TRUNCATE ... CASCADE handles the circular users↔entities and
     # cases↔case_messages/audit_events FKs cleanly and resets identity sequences.
     table_names = ", ".join(f'"{t}"' for t in Base.metadata.tables.keys())

@@ -10,6 +10,8 @@ import { useAudience } from "@/lib/hooks";
 import { api } from "@/lib/api";
 import { DGHR_NAV, ENTITY_NAV, type NavItem } from "./nav";
 import { Crest } from "./Brand";
+import { EntityLogo } from "./EntityLogo";
+import dghrWordmark from "@/assets/brand/dghr-wordmark.png";
 
 function NavRow({ item, badge, collapsed }: { item: NavItem; badge?: number; collapsed: boolean }) {
   const { pathname } = useLocation();
@@ -105,13 +107,27 @@ export function Sidebar() {
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
         )}
       >
-        {/* Crest + wordmark */}
-        <div className={cn("flex items-center gap-2.5 pb-4 pt-5", railCollapsed ? "justify-center px-0 lg:px-0" : "px-5")}>
-          <Crest size={34} />
-          {!railCollapsed && (
-            <div className="leading-tight">
-              <div className="text-[11px] font-semibold tracking-wide text-white/70">حكومة دبي</div>
-              <div className="text-[11px] font-bold tracking-wide text-white">DUBAI GOVERNMENT</div>
+        {/* Brand mark — DGHR portal shows the department wordmark; an entity portal shows the
+            entity's own logo, co-branded with "Government of Dubai". Real marks sit on a white chip
+            so they read on the navy rail. Collapsed rail falls back to a compact square. */}
+        <div className={cn("pb-4 pt-5", railCollapsed ? "px-2" : "px-4")}>
+          {railCollapsed ? (
+            <div className="flex justify-center">
+              {isDghr
+                ? <Crest size={34} />
+                : <EntityLogo name={persona.portalTitle} code={persona.code} size={38} rounded="lg" />}
+            </div>
+          ) : isDghr ? (
+            <div className="flex items-center justify-center rounded-lg bg-white px-3 py-2.5 ring-1 ring-black/5">
+              <img src={dghrWordmark} alt="Dubai Government Human Resources Department" className="h-9 w-auto object-contain" />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 rounded-lg bg-white/95 px-3 py-2.5 ring-1 ring-black/5">
+              <EntityLogo name={persona.portalTitle} code={persona.code} size={34} rounded="md" />
+              <div className="min-w-0 leading-tight">
+                <div className="truncate text-[13px] font-bold text-navy-900">{persona.portalTitle}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-navy-900/60">Government of Dubai</div>
+              </div>
             </div>
           )}
         </div>

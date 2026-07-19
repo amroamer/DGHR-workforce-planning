@@ -19,10 +19,13 @@ export function PageHeader({
   title,
   subtitle,
   actions,
+  leading,
 }: {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
+  /** Optional mark rendered left of the title — e.g. an entity's brand logo on its portal. */
+  leading?: React.ReactNode;
 }) {
   const qc = useQueryClient();
   const { data } = useQuery({
@@ -55,6 +58,7 @@ export function PageHeader({
           >
             <Menu size={20} />
           </button>
+          {leading && <div className="mt-0.5 shrink-0">{leading}</div>}
           <div className="min-w-0">
             <h1 className="text-xl font-bold leading-tight text-text1 sm:text-[28px]">{title}</h1>
             {subtitle && <p className="mt-1 text-sm text-text2">{subtitle}</p>}

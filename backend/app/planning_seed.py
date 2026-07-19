@@ -15,6 +15,27 @@ from sqlalchemy.orm import Session
 from app import models as m
 from app.db import SessionLocal
 
+
+# ─────────────────────────── entity brand logos ───────────────────────────
+# Entity codes for which an official brand mark is held in frontend/public/logos. The file is named
+# by the slugified code (see _logo_slug), so the frontend resolves the same asset by convention.
+# Codes absent here have no asset → the UI renders a deterministic initials chip. Keep this set in
+# step with the files under frontend/public/logos and with ENTITY_LOGO_CODES on the frontend.
+LOGO_CODES = {"DEWA", "RTA", "DM", "DHA", "DP", "DC", "DXBC", "GDRFA", "DLD", "DET"}
+
+
+def _logo_slug(code: str) -> str:
+    """Slugify an entity code into its logo filename stem (must match the frontend's logoSlug)."""
+    out = "".join(c.lower() if c.isalnum() else "-" for c in (code or "").strip())
+    while "--" in out:
+        out = out.replace("--", "-")
+    return out.strip("-")
+
+
+def logo_url_for(code: str) -> str | None:
+    """Canonical /logos path for an entity code, or None when no official asset is held."""
+    return f"/logos/{_logo_slug(code)}.png" if code in LOGO_CODES else None
+
 # ─────────────────────────── the 10 typesets (with default drivers + standards) ───────────────────────────
 TYPESETS = [
     ("policy_strategy", "Policy & strategy", "project", [
@@ -186,7 +207,8 @@ def _get_or_create_entity(db: Session, name: str, code: str, wave: str) -> m.Ent
     e = db.query(m.Entity).filter(m.Entity.code == code).first()
     if e:
         return e
-    e = m.Entity(name=name, code=code, wave=wave, status="in_progress", completeness=0)
+    e = m.Entity(name=name, code=code, wave=wave, status="in_progress", completeness=0,
+                 logo_url=logo_url_for(code))
     db.add(e)
     db.flush()
     return e

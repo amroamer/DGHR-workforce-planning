@@ -102,6 +102,7 @@ export interface TrackerRow {
   id: number;
   name: string;
   code: string;
+  logo_url: string | null;
   wave: string;
   packages: Record<string, number | null>;
   completeness: number;
@@ -469,6 +470,7 @@ export interface EntityDetail {
   id: number;
   name: string;
   code: string;
+  logo_url: string | null;
   wave: string;
   status: PackageStatus;
   status_label: string;

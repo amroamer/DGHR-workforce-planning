@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/shared/PageHeader";
 import { PageBody } from "@/components/shared/AppShell";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Acronym } from "@/components/shared/Acronym";
+import { EntityLogo } from "@/components/shared/EntityLogo";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { MiniBar, GapPill, ReceivedChip, HcTiles, LevelBar, ProjectedGapChart, SupplyChain, SmartRemarkCell, fmtFte } from "./widgets";
@@ -372,7 +373,15 @@ export function PlanningGovernment() {
                 return (
                   <tr key={e.entity_id} className={`border-b border-border last:border-0 ${e.received > 0 ? "cursor-pointer hover:bg-page/60" : "opacity-60"}`}
                     onClick={() => e.received > 0 && navigate(`/dghr/gov-entity/${e.entity_id}`)}>
-                    <td className="px-5 py-3"><div className="flex items-center gap-2 font-semibold text-text1">{e.name} {e.received > 0 && <ArrowUpRight size={13} className="text-text3" />}</div><div className="text-[11px] text-text3"><Acronym short={e.code} full={e.name} /></div></td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <EntityLogo name={e.name} code={e.code} size={28} />
+                        <div>
+                          <div className="flex items-center gap-2 font-semibold text-text1">{e.name} {e.received > 0 && <ArrowUpRight size={13} className="text-text3" />}</div>
+                          <div className="text-[11px] text-text3"><Acronym short={e.code} full={e.name} /></div>
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-3 py-3">{labels && <StatusBadge value={e.rollup_status} label={labels[e.rollup_status]} />}</td>
                     <td className="px-3 py-3">
                       <ReceivedChip received={e.received} total={e.dept_count} />

@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     demo_ai_mode: str = "fallback"  # "fallback" forces deterministic canned output
     model_name: str = "claude-sonnet-5"
 
+    # Destructive-reset safety switch (default OFF). Seeding an EMPTY database always works;
+    # this only gates operations that would TRUNCATE an already-populated DB — a full reseed
+    # (app.seed_clean / app.seed) or POST /api/demo/reset. Keep false in any environment that
+    # holds data you care about; set true only for a deliberate demo reset. See CLAUDE.md.
+    allow_db_reset: bool = False
+
 
 settings = Settings()
 

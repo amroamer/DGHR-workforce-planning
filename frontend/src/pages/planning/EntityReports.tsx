@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Download, Users, Target, TrendingUp, IdCard } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAudience } from "@/lib/hooks";
+import { usePersona } from "@/stores/persona";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { EntityLogo } from "@/components/shared/EntityLogo";
 import { PageBody } from "@/components/shared/AppShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,7 @@ import { Q_STATUS_LABEL, Q_STATUS_VALUE } from "./Departments";
 // submissions, plus a real CSV export. Every figure comes from the API.
 export function PlanningEntityReports() {
   const { entityId } = useAudience();
+  const { persona } = usePersona();
   const navigate = useNavigate();
   const { data } = useQuery({ queryKey: ["q-depts", entityId], queryFn: () => api.planning.departments(entityId!), enabled: entityId != null, refetchInterval: 4000 });
   const { data: hc } = useQuery({ queryKey: ["q-hc", entityId], queryFn: () => api.planning.humanCapital(entityId!), enabled: entityId != null, refetchInterval: 4000 });
@@ -38,6 +41,7 @@ export function PlanningEntityReports() {
       <PageHeader
         title="Reports"
         subtitle="Your workforce report: every figure computed from what you submitted. Export it for your own reporting."
+        leading={<EntityLogo name={persona.portalTitle} code={persona.code} size={48} rounded="lg" />}
         actions={entityId != null ? (
           <Button size="sm" onClick={() => window.open(api.planning.entityReportCsvUrl(entityId), "_blank")}>
             <Download size={15} /> Export CSV

@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import get_db
 from app.seed_clean import seed_clean
 from app.checks import run_checks
@@ -17,8 +18,17 @@ router = APIRouter(prefix="/api/demo", tags=["demo"])
 
 @router.post("/reset")
 def reset() -> dict:
-    """Reset to the clean Planning scenario (entities + departments + typesets only)."""
-    r = seed_clean()
+    """Reset to the clean Planning scenario (entities + departments + typesets only).
+
+    DESTRUCTIVE — truncates every table. Disabled by default; set ALLOW_DB_RESET=true to enable,
+    so this can never wipe real submissions by accident (see CLAUDE.md > Database safety)."""
+    if not settings.allow_db_reset:
+        raise HTTPException(
+            status_code=403,
+            detail=("Demo reset is disabled: it truncates ALL data. Set ALLOW_DB_RESET=true on the "
+                    "backend to enable it, and back up first (see CLAUDE.md > Database safety)."),
+        )
+    r = seed_clean(force=True)
     return {"ok": True, "message": f"Reset: {r['entities']} entities, {r['departments']} departments, no seeded metrics."}
 
 

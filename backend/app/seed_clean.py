@@ -14,8 +14,9 @@ from sqlalchemy.orm import Session
 
 from app import models as m
 from app.calc_seed import METHOD_EFFECTIVE_FROM, seed_calc_config
+from app.config import settings
 from app.db import Base, SessionLocal, engine
-from app.planning_seed import TYPESETS, ENTITIES
+from app.planning_seed import TYPESETS, ENTITIES, logo_url_for
 from app.services import cycles, review, versioning
 from app.market_seed import seed_market_reference
 from app.services.human_capital import build_workforce_bands, build_workforce_rows, build_position_rows
@@ -544,10 +545,32 @@ def _truncate(db: Session) -> None:
     db.commit()
 
 
-def seed_clean() -> dict:
+def _db_has_data(db: Session) -> bool:
+    """True once the app has been seeded — used to distinguish a first-run empty DB from a
+    populated one that a reseed would destroy."""
+    return db.query(m.Typeset).count() > 0 and db.query(m.Department).count() > 0
+
+
+class ReseedRefused(RuntimeError):
+    """Raised when seed_clean() would wipe a populated DB without explicit permission."""
+
+
+def seed_clean(force: bool = False) -> dict:
+    """Rebuild the clean Planning scenario. DESTRUCTIVE — truncates every table first.
+
+    Refuses on an already-populated DB unless the reset is explicit (force=True or
+    ALLOW_DB_RESET=true). Seeding an empty DB (first run) is always allowed.
+    """
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
+        if _db_has_data(db) and not force and not settings.allow_db_reset:
+            raise ReseedRefused(
+                "Refusing to reseed: the database already holds data that this would DESTROY "
+                "(seed_clean TRUNCATEs every table). To run it deliberately, set ALLOW_DB_RESET=true "
+                "or use `python -m app.seed_clean --force`. Back up first — see CLAUDE.md > Database "
+                "safety. First-run seeding of an empty DB is unaffected."
+            )
         _truncate(db)
 
         start = date(2026, 7, 1)
@@ -581,7 +604,8 @@ def seed_clean() -> dict:
         depts = 0
         for wi, (name, code, dlist) in enumerate(ENTITIES):
             wave = ["W1", "W1", "W2", "W2", "W3"][wi % 5]
-            e = m.Entity(name=name, code=code, wave=wave, status="in_progress", completeness=0)
+            e = m.Entity(name=name, code=code, wave=wave, status="in_progress", completeness=0,
+                         logo_url=logo_url_for(code))
             db.add(e)
             db.flush()
             # One named contact per entity: the person a trace points at when it says who entered
@@ -657,4 +681,9 @@ def seed_clean_if_empty() -> dict:
 
 
 if __name__ == "__main__":
-    print(seed_clean_if_empty() if "--if-empty" in sys.argv else seed_clean())
+    if "--if-empty" in sys.argv:
+        print(seed_clean_if_empty())
+    else:
+        # A bare `python -m app.seed_clean` is destructive; it refuses on a populated DB unless
+        # ALLOW_DB_RESET=true. `--force` is the explicit "yes, wipe and rebuild" for a deliberate reset.
+        print(seed_clean(force="--force" in sys.argv))
