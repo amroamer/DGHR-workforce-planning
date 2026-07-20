@@ -52,7 +52,7 @@ def simulate_submissions(n: int = 3, db: Session = Depends(get_db)) -> dict:
 @router.post("/trigger-anomaly")
 def trigger_anomaly(db: Session = Depends(get_db)) -> dict:
     """Add a fresh AI anomaly + DGHR alert + notification (§14)."""
-    e = db.query(m.Entity).filter(m.Entity.code == "DEWA").first() or db.query(m.Entity).first()
+    e = db.query(m.Entity).filter(m.Entity.code == "RTA").first() or db.query(m.Entity).first()
     a = m.Anomaly(entity_id=e.id, title="Sudden drop in reported workload without headcount change",
                   detail="", package_key="workload_service", severity="High", confidence=93)
     db.add(a)

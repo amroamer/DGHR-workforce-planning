@@ -494,6 +494,11 @@ export const api = {
       request<Q.DemandPayload>(`/api/planning/dghr/analytics/demand?basis=${basis}&scenario=${scenario}${entityId != null ? `&entity_id=${entityId}` : ""}`),
     analyticsSupply: (basis: Q.BasisKey = "received", scenario = "base", entityId?: number) =>
       request<Q.SupplyPayload>(`/api/planning/dghr/analytics/supply?basis=${basis}&scenario=${scenario}${entityId != null ? `&entity_id=${entityId}` : ""}`),
+    // ── cross-entity comparison (up to 5 entities; extras beyond 5 ignored server-side) ──
+    analyticsEntityComparison: (entityIds: number[], basis: Q.BasisKey = "received", scenario = "base") =>
+      request<Q.EntityComparisonPayload>(`/api/planning/dghr/analytics/entity-comparison?entity_ids=${entityIds.join(",")}&basis=${basis}&scenario=${scenario}`),
+    entityComparisonCsvUrl: (entityIds: number[], basis: Q.BasisKey = "received", scenario = "base") =>
+      `${BASE}/api/planning/dghr/report/entity-comparison.csv?entity_ids=${entityIds.join(",")}&basis=${basis}&scenario=${scenario}`,
     dghrEntity: (id: number) => request<Q.DepartmentsPayload>(`/api/planning/dghr/entities/${id}`),
     dghrSubmission: (subId: number) => request<Q.SubmissionPayload>(`/api/planning/dghr/submissions/${subId}`),
     reviewers: () => request<{ reviewers: Q.Reviewer[] }>("/api/planning/dghr/reviewers"),

@@ -21,7 +21,7 @@ from app.db import SessionLocal
 # by the slugified code (see _logo_slug), so the frontend resolves the same asset by convention.
 # Codes absent here have no asset → the UI renders a deterministic initials chip. Keep this set in
 # step with the files under frontend/public/logos and with ENTITY_LOGO_CODES on the frontend.
-LOGO_CODES = {"DEWA", "RTA", "DM", "DHA", "DP", "DC", "DXBC", "GDRFA", "DLD", "DET"}
+LOGO_CODES = {"RTA", "DM", "DHA", "DP", "DC", "DXBC", "GDRFA", "DLD", "DET"}
 
 
 def _logo_slug(code: str) -> str:
@@ -35,6 +35,16 @@ def _logo_slug(code: str) -> str:
 def logo_url_for(code: str) -> str | None:
     """Canonical /logos path for an entity code, or None when no official asset is held."""
     return f"/logos/{_logo_slug(code)}.png" if code in LOGO_CODES else None
+
+# Corporate-support typeset keys: HR/finance/procurement/facilities (`corporate`) and IT (`digital`).
+# Every other typeset is core service delivery. Drives Typeset.category — the support-to-core axis of
+# the cross-entity comparison report. Kept as one named set so the classification has a single source.
+SUPPORT_TYPESET_KEYS = {"corporate", "digital"}
+
+
+def category_for(key: str) -> str:
+    return "support" if key in SUPPORT_TYPESET_KEYS else "core"
+
 
 # ─────────────────────────── the 10 typesets (with default drivers + standards) ───────────────────────────
 TYPESETS = [
@@ -90,16 +100,6 @@ TYPESETS = [
 # ─────────────────────────── 5 Dubai entities + representative departments ───────────────────────────
 # (name, code, [(department, typeset_key, current_fte)])
 ENTITIES = [
-    ("Dubai Electricity & Water Authority", "DEWA", [
-        ("Strategy & Future Planning", "policy_strategy", 24),
-        ("Generation & Transmission Projects", "project_delivery", 64),
-        ("Network Operations & Maintenance", "ops_maintenance", 210),
-        ("Load Dispatch Control Centre", "control_coverage", 34),
-        ("Customer Care Centres", "frontline_service", 96),
-        ("Billing & Revenue", "payments", 40),
-        ("Shared Corporate Services", "corporate", 82),
-        ("Digital & IT", "digital", 58),
-    ]),
     ("Roads & Transport Authority", "RTA", [
         ("Strategy & Corporate Governance", "policy_strategy", 30),
         ("Infrastructure & Capital Projects", "project_delivery", 88),
@@ -224,7 +224,7 @@ def seed_planning(db: Session | None = None) -> dict:
             if key in ts_by_key:
                 continue
             t = m.Typeset(key=key, name=name, position=pos, primary_family=fam,
-                          default_drivers=drivers, description="")
+                          category=category_for(key), default_drivers=drivers, description="")
             db.add(t)
             db.flush()
             ts_by_key[key] = t

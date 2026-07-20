@@ -426,6 +426,35 @@ export interface SupplyPayload extends AnalyticsBase {
   universities: { local: MarketRow[]; global: MarketRow[] };
   global_hotspots: MarketRow[];
 }
+// ── Cross-entity comparison report (Executive Dashboards) ──
+export interface CmpStructure {
+  support_fte: number; core_fte: number; establishment_fte: number;
+  corporate_fte: number; it_fte: number; support_share_pct: number | null;
+  by_category: { category: string; label: string; fte: number; pct: number }[];
+}
+export interface CmpEntity {
+  id: number; name: string; code: string; logo_url: string | null; wave: string;
+  has_workforce_data: boolean;
+  structure: CmpStructure;
+  level_mix: { key: string; label: string; headcount: number; fte: number; pct: number }[];
+}
+export interface CmpMetricValue { value: number | null; display: string; rank: number | null }
+export interface CmpMetric {
+  key: string; label: string; group: string; unit: string; format: string;
+  higher_is_better: boolean | null; source: string; description: string;
+  benchmark: number | null; values: Record<string, CmpMetricValue>;
+}
+export interface EntityComparisonPayload {
+  basis: BasisKey; scenario: string;
+  bases: { key: BasisKey; label: string }[];
+  scenarios: { key: string; label: string }[];
+  max_entities: number;
+  entities: CmpEntity[];
+  metrics: CmpMetric[];
+  metric_groups: string[];
+  category_labels: Record<string, string>;
+}
+
 // Demographic-band capture (stepper) + reload payload.
 export interface BandBucketInput { bucket: string; label?: string; headcount: number }
 export interface BandInput { dimension: string; buckets: BandBucketInput[] }

@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   TrendingUp,
   GraduationCap,
+  Scale,
   History,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export const DGHR_NAV: NavItem[] = [
   { label: "Human Capital Overview", to: "/dghr/hc-overview", icon: LayoutDashboard, group: "Executive Dashboards" },
   { label: "Demand Analysis", to: "/dghr/demand-analysis", icon: TrendingUp },
   { label: "Supply Analysis", to: "/dghr/supply-analysis", icon: GraduationCap },
+  { label: "Entity Comparison", to: "/dghr/entity-comparison", icon: Scale },
   { label: "Government-Wide Position", to: "/dghr/government", icon: Globe, group: "Workforce Planning", activeAlso: ["/dghr/gov-entity", "/dghr/gov-submission"] },
   { label: "Method & Typesets", to: "/dghr/method", icon: Layers },
   { label: "Alerts & Smart Flags", to: "/dghr/alerts", icon: TriangleAlert },

@@ -132,8 +132,6 @@ SCENARIOS: list[dict] = [
     dict(key="demand", label="Demand +15%", factors={"demand": 1.15, "project": 1.15}, position=1,
          note="Tests a 15% rise in transactional and project volumes. Coverage, ratio and statutory "
               "floors are unaffected, they do not scale with volume."),
-    dict(key="prod", label="Productivity +8%", factors={"demand": 0.92}, position=2,
-         note="Tests an 8% improvement in handling time on demand-driven work only."),
 ]
 
 # ─────────────────────────── engine constants ───────────────────────────

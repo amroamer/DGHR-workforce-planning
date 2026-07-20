@@ -10,8 +10,9 @@ import sys
 
 from app.db import SessionLocal
 from app import models as m
-from app.planning_seed import TYPESETS, ENTITIES
-from app.services import calc_config, cycles, human_capital, review, revisions, sizing, supply, trace, versioning
+from app.planning_seed import TYPESETS, ENTITIES, category_for
+from app.services import (calc_config, cycles, entity_comparison, human_capital, review, revisions,
+                          sizing, supply, trace, versioning)
 
 PASS = "✓"
 FAIL = "✗"
@@ -352,6 +353,49 @@ def run_checks() -> int:
               f"{hc['emiratization_pct']}%")
         check("job-level mix sums to headcount",
               sum(b["headcount"] for b in hc["by_level"]) == hc["headcount"])
+
+        # ── cross-entity comparison report ──
+        # Support/core is a partition of every department, so support + core establishment FTE must
+        # equal the entity's whole establishment — and the service must report exactly that split.
+        # Assert the actual mapping, not just "some value" — an all-'core' seed (the bug where
+        # seed_clean recreated typesets without a category) still satisfies support+core==total with
+        # support=0, so a weaker check would pass while every support ratio reads zero.
+        check("typesets classified support|core exactly as planning_seed.category_for",
+              all(t.category == category_for(t.key) for t in db.query(m.Typeset).all()))
+        check("corporate-support typesets are actually classified 'support'",
+              db.query(m.Typeset).filter(m.Typeset.category == "support").count() >= 2,
+              f"{db.query(m.Typeset).filter(m.Typeset.category == 'support').count()} support")
+        typeset_cat = {t.id: t.category for t in db.query(m.Typeset).all()}
+        bad_partition = 0
+        for e in db.query(m.Entity).all():
+            depts = db.query(m.Department).filter(m.Department.entity_id == e.id).all()
+            support = round(sum(float(d.current_fte or 0) for d in depts
+                                if typeset_cat.get(d.typeset_id) == "support"), 2)
+            total = round(sum(float(d.current_fte or 0) for d in depts), 2)
+            payload = entity_comparison.entity_comparison(db, [e.id])
+            st = payload["entities"][0]["structure"] if payload["entities"] else None
+            if (not st or abs(st["support_fte"] + st["core_fte"] - st["establishment_fte"]) > 0.011
+                    or abs(st["support_fte"] - support) > 0.011
+                    or abs(st["core_fte"] - (total - support)) > 0.011):
+                bad_partition += 1
+        check("support + core establishment FTE = entity total (comparison partition)",
+              bad_partition == 0, f"{bad_partition} bad")
+
+        # Archetype variation: a field-operations entity must run a leaner management ratio than a
+        # knowledge/regulatory one — the deliberate spread that makes the comparison worth reading
+        # (seed_clean._ARCHETYPE). A comparison of identical bars shows nothing.
+        field_ops = db.query(m.Entity).filter(m.Entity.code == "RTA").first()
+        dha = db.query(m.Entity).filter(m.Entity.code == "DHA").first()
+        if field_ops and dha:
+            cmp2 = entity_comparison.entity_comparison(db, [field_ops.id, dha.id])
+            mp = {row: v["value"] for met in cmp2["metrics"] if met["key"] == "management_pct"
+                  for row, v in met["values"].items()}
+            f_mp, k_mp = mp.get(str(field_ops.id)), mp.get(str(dha.id))
+            check("archetype variation differentiates the management ratio (field_ops < knowledge)",
+                  f_mp is not None and k_mp is not None and f_mp < k_mp,
+                  f"RTA {f_mp}% vs DHA {k_mp}%")
+            check("every comparison metric covers every compared entity",
+                  all(set(met["values"].keys()) == {str(field_ops.id), str(dha.id)} for met in cmp2["metrics"]))
 
         # ── projection invariants ──
         cycle = cycles.current_cycle(db)

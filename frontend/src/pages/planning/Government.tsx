@@ -130,13 +130,12 @@ export function PlanningGovernment() {
   // fetch all three so the scenario-impact panel can show them side by side (cached by key)
   const qBase = useQuery({ queryKey: ["q-gov", basis, "base"], queryFn: () => api.planning.government("base", basis), refetchInterval: 4000 });
   const qDem = useQuery({ queryKey: ["q-gov", basis, "demand"], queryFn: () => api.planning.government("demand", basis), refetchInterval: 4000 });
-  const qProd = useQuery({ queryKey: ["q-gov", basis, "prod"], queryFn: () => api.planning.government("prod", basis), refetchInterval: 4000 });
   // Both follow `basis` — a panel pinned to received while the headline moves puts a contradiction
   // on one screen (Current FTE 6,421 beside a 4,741 headcount).
   const qHc = useQuery({ queryKey: ["q-gov-hc", basis, jobLevel, demoDim, demoBucket], queryFn: () => api.planning.govHumanCapital(basis, { job_level: jobLevel || undefined, dim: demoDim || undefined, bucket: demoBucket || undefined }), refetchInterval: 4000 });
   const qProj = useQuery({ queryKey: ["q-gov-proj", basis, scenario], queryFn: () => api.planning.govProjection(scenario, basis), refetchInterval: 4000 });
   const qPipe = useQuery({ queryKey: ["q-gov-pipeline"], queryFn: () => api.planning.pipeline(), refetchInterval: 4000 });
-  const byScen: Record<string, typeof qBase.data> = { base: qBase.data, demand: qDem.data, prod: qProd.data };
+  const byScen: Record<string, typeof qBase.data> = { base: qBase.data, demand: qDem.data };
   const data = byScen[scenario];
   const t = data?.totals;
   const cov = data?.coverage;

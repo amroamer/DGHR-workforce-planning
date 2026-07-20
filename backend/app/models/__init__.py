@@ -513,6 +513,11 @@ class Typeset(Base):
     name: Mapped[str] = mapped_column(String(80))           # "Policy & strategy"
     position: Mapped[int] = mapped_column(Integer, default=0)
     primary_family: Mapped[str] = mapped_column(String(16), default="demand")
+    # Support vs core classification for the cross-entity comparison report. `corporate` (HR/finance/
+    # procurement/facilities) and `digital` (IT) are the corporate-support functions; the other 8
+    # typesets are core service delivery. Held as a DB column (not a Python-literal map) so the
+    # support-to-core ratio honours the everything-from-DB rule and can be re-classified centrally.
+    category: Mapped[str] = mapped_column(String(16), default="core")   # support|core
     description: Mapped[str] = mapped_column(String(240), default="")
     # template drivers a new department starts from: [{name, unit, family, params}]
     default_drivers: Mapped[list] = mapped_column(JSONB, default=list)

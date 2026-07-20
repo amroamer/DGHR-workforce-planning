@@ -39,9 +39,44 @@ COST_PER_FTE = {
 _LEVEL_WEIGHTS = {"managers": 0.12, "professionals": 0.33, "associate_professionals": 0.35, "clerical_support": 0.20}
 _EMIRATI_BASE = {"managers": 0.46, "professionals": 0.34, "associate_professionals": 0.27, "clerical_support": 0.18}
 
+# Job-level weight profiles by workforce ARCHETYPE. Field/operations bodies (police, roads, utilities,
+# municipal, customs, borders) run leaner management over a large operational base; knowledge/regulatory
+# bodies (education, health, land, economy, community, courts) carry more managers and professionals and
+# less clerical support. Applied at SEED time so each entity's stored workforce rows — and every ratio the
+# cross-entity comparison report builds on them — differ per entity instead of sharing one government-wide
+# shape. Weights are normalised to sum to 1 when applied, so a profile need only be roughly proportioned.
+LEVEL_WEIGHT_PROFILES: dict[str, dict[str, float]] = {
+    "balanced":  {"managers": 0.12, "professionals": 0.33, "associate_professionals": 0.35, "clerical_support": 0.20},
+    "field_ops": {"managers": 0.09, "professionals": 0.27, "associate_professionals": 0.41, "clerical_support": 0.23},
+    "knowledge": {"managers": 0.15, "professionals": 0.40, "associate_professionals": 0.30, "clerical_support": 0.15},
+}
+# Share of the managers level that are Directors (structural senior management) vs line Managers.
+# Knowledge/regulatory bodies run flatter with a heavier director tier; field operations run a deeper
+# line-management pyramid. This is what varies the senior-management ratio across entities.
+_DIRECTOR_SHARE: dict[str, float] = {"balanced": 0.40, "field_ops": 0.32, "knowledge": 0.46}
+
 
 def _clamp(x: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, x))
+
+
+def _normalize_weights(weights: dict[str, float]) -> dict[str, float]:
+    """Renormalise a job-level weight dict so the four levels sum to exactly 1."""
+    s = sum(weights.get(k, 0.0) for k in LEVEL_KEYS) or 1.0
+    return {k: weights.get(k, 0.0) / s for k in LEVEL_KEYS}
+
+
+def level_weights_for(profile: str = "balanced", *, seed_i: int = 0) -> dict[str, float]:
+    """Job-level weights for a workforce archetype, with a small deterministic per-entity tilt on the
+    management share so entities sharing a profile still differ slightly. Normalised to sum to 1."""
+    base = dict(LEVEL_WEIGHT_PROFILES.get(profile, LEVEL_WEIGHT_PROFILES["balanced"]))
+    base["managers"] = _clamp(base["managers"] + ((seed_i % 5) - 2) * 0.01, 0.05, 0.20)
+    return _normalize_weights(base)
+
+
+def director_share_for(profile: str = "balanced", *, seed_i: int = 0) -> float:
+    """Share of the managers level that are Directors (structural senior management), tilted per entity."""
+    return _clamp(_DIRECTOR_SHARE.get(profile, _DIRECTOR_SHARE["balanced"]) + ((seed_i % 3) - 1) * 0.02, 0.2, 0.6)
 
 
 # Part-timers don't sit evenly across a hierarchy — they cluster in clerical and professional roles,
@@ -60,20 +95,22 @@ def _split_int(total: int, weights: dict[str, float]) -> dict[str, int]:
 
 
 def build_workforce_rows(headcount_total: int, *, emirati_factor: float = 1.0,
-                         part_time_heads: int = 0) -> list[dict]:
+                         part_time_heads: int = 0, weights: dict[str, float] | None = None) -> list[dict]:
     """One row per job level, carrying PEOPLE and TIME as separate measures.
 
     `headcount_total` is bodies. `part_time_heads` of them work half time, so the department's FTE
     comes out below its headcount — which is the whole point of the split: this function used to be
     handed a department's FTE and simply declare it to be the headcount, making the two impossible
     to tell apart. `emirati_factor` shifts Emiratization per entity so the government view has spread.
+    `weights` selects the archetype job-level shape (see LEVEL_WEIGHT_PROFILES); the total headcount
+    and total FTE are invariant to it — only how they split across the four levels changes.
     """
     headcount_total = int(round(headcount_total))
     if headcount_total <= 0:
         return [{"job_level": k, "headcount": 0, "fte": 0.0, "emirati_count": 0,
                  "annual_cost_aed": 0.0, "position": i} for i, k in enumerate(LEVEL_KEYS)]
 
-    heads = _split_int(headcount_total, _LEVEL_WEIGHTS)
+    heads = _split_int(headcount_total, weights or _LEVEL_WEIGHTS)
 
     # Seat the part-timers, clerical first, never more than a level actually holds.
     remaining = max(0, min(int(part_time_heads), headcount_total))
@@ -110,14 +147,25 @@ _ROLE_TEMPLATE = [
 ]
 
 
-def build_position_rows(headcount_total: int, *, seed_i: int = 0) -> list[dict]:
-    heads = _split_int(int(round(max(0, headcount_total))), _LEVEL_WEIGHTS)
+def build_position_rows(headcount_total: int, *, seed_i: int = 0,
+                        weights: dict[str, float] | None = None,
+                        director_share: float = 0.4) -> list[dict]:
+    """Per-position rows (role, grade band, seniority) under the total FTE. `weights` must match the
+    workforce rows' archetype so the managers headcount agrees between the two; `director_share` sets
+    how much of the managers level is structural (Director) vs line management, varying the
+    senior-management ratio across entities."""
+    heads = _split_int(int(round(max(0, headcount_total))), weights or _LEVEL_WEIGHTS)
     rows: list[dict] = []
     pos = 0
     for level in LEVEL_KEYS:
         tmpl = [t for t in _ROLE_TEMPLATE if t[0] == level]
-        weights = {t[1]: t[4] for t in tmpl}
-        split = _largest_remainder(heads[level], weights) if heads[level] else {t[1]: 0 for t in tmpl}
+        if level == "managers":
+            # Director vs Manager split drives the structural senior-management count (S5).
+            role_weights = {"Director": _clamp(director_share, 0.0, 1.0),
+                            "Manager": _clamp(1.0 - director_share, 0.0, 1.0)}
+        else:
+            role_weights = {t[1]: t[4] for t in tmpl}
+        split = _largest_remainder(heads[level], role_weights) if heads[level] else {t[1]: 0 for t in tmpl}
         for (_lv, role, seniority, grade, _share) in tmpl:
             rows.append({
                 "role": role, "grade_band": grade, "job_level": level, "seniority": seniority,

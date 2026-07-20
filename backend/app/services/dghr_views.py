@@ -302,7 +302,7 @@ def build_quality(db: Session, *, page=1, page_size=8) -> dict:
     } for i in issues_page]
 
     # quality bars — pinned named entities + overall average highlighted
-    bar_names = ["Dubai Electricity & Water Authority", "Dubai Police", "Dubai Municipality",
+    bar_names = ["Dubai Police", "Dubai Municipality",
                  "Roads & Transport Authority", "Dubai Health Authority", "Land Department", "Dubai Culture"]
     by_name = {e.name: e for e in entities.values()}
     bars = []

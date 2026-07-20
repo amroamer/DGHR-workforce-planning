@@ -20,6 +20,7 @@ import { PlanningAlerts } from "@/pages/planning/Alerts";
 import { HumanCapitalOverview } from "@/pages/dghr/analytics/HumanCapital";
 import { DemandAnalysis } from "@/pages/dghr/analytics/DemandAnalysis";
 import { SupplyAnalysis } from "@/pages/dghr/analytics/SupplyAnalysis";
+import { EntityComparison } from "@/pages/dghr/analytics/EntityComparison";
 
 // Every nav destination is a real screen now — no placeholder routes remain.
 function IndexRedirect() {
@@ -47,6 +48,7 @@ export const router = createBrowserRouter([
       { path: "/dghr/hc-overview", element: <HumanCapitalOverview /> },
       { path: "/dghr/demand-analysis", element: <DemandAnalysis /> },
       { path: "/dghr/supply-analysis", element: <SupplyAnalysis /> },
+      { path: "/dghr/entity-comparison", element: <EntityComparison /> },
       // ── Planning (department + sizing) ──
       { path: "/dghr/government", element: <PlanningGovernment /> },
       { path: "/dghr/gov-entity/:entityId", element: <PlanningDghrEntity /> },

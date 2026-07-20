@@ -105,7 +105,7 @@ def test_family_split_reconciles_with_required(client, db):
         # a floor that does NOT bind contributes nothing to required
         if sz["floor_total"] and not sz["floor_binds"]:
             assert all(x["family"] != "mandate" for x in sz["family_split"] if not x.get("binds"))
-    for scen in ("base", "demand", "prod"):
+    for scen in ("base", "demand"):
         gov = client.get(f"/api/planning/dghr/government?scenario={scen}").json()
         t = gov["totals"]
         assert sum(x["fte"] for x in t["family_split"]) == t["required_fte"], f"gov split != required ({scen})"
@@ -309,8 +309,65 @@ def test_government_rollup_and_by_type(client, db):
     # scenarios genuinely re-price demand/project (and nothing else)
     base = client.get("/api/planning/dghr/government?scenario=base").json()["totals"]["required_fte"]
     dem = client.get("/api/planning/dghr/government?scenario=demand").json()["totals"]["required_fte"]
-    prod = client.get("/api/planning/dghr/government?scenario=prod").json()["totals"]["required_fte"]
-    assert dem > base > prod
+    assert dem > base
+
+
+# ───────────────────────── cross-entity comparison ─────────────────────────
+def _eid(db, code: str) -> int:
+    return db.query(m.Entity).filter(m.Entity.code == code).first().id
+
+
+def test_entity_comparison_partitions_support_and_core(client, db):
+    """Support + core establishment FTE equals the entity's whole establishment, and structure is
+    computed for every selected entity — even one that never submitted (current_fte is always known)."""
+    rta, dc = _eid(db, "RTA"), _eid(db, "DC")   # DC never started — no submissions, but has departments
+    r = client.get(f"/api/planning/dghr/analytics/entity-comparison?entity_ids={rta},{dc}")
+    assert r.status_code == 200
+    data = r.json()
+    assert [e["id"] for e in data["entities"]] == [rta, dc]      # request order preserved
+    for e in data["entities"]:
+        st = e["structure"]
+        assert abs(st["support_fte"] + st["core_fte"] - st["establishment_fte"]) < 0.02
+        assert st["establishment_fte"] > 0                        # structure always present
+    rta_row = next(e for e in data["entities"] if e["id"] == rta)
+    # RTA has corporate + IT departments, so support FTE must be a real non-zero slice — guards the
+    # all-'core' misclassification that leaves every support ratio reading zero.
+    assert rta_row["structure"]["support_fte"] > 0
+    assert rta_row["structure"]["corporate_fte"] > 0 and rta_row["structure"]["it_fte"] > 0
+    dc_row = next(e for e in data["entities"] if e["id"] == dc)
+    assert dc_row["has_workforce_data"] is False                 # no submissions → mix is null
+
+
+def test_entity_comparison_caps_at_five_and_dedupes(client, db):
+    ids = [e.id for e in db.query(m.Entity).order_by(m.Entity.id).limit(7).all()]
+    raw = ",".join(str(i) for i in ids + [ids[0]])               # 7 ids + a duplicate
+    data = client.get(f"/api/planning/dghr/analytics/entity-comparison?entity_ids={raw}").json()
+    assert len(data["entities"]) == 5                            # capped at 5
+    assert len({e["id"] for e in data["entities"]}) == 5         # de-duplicated
+
+
+def test_entity_comparison_metrics_ranked_and_differentiated(client, db):
+    """Every metric carries a value per entity, and the archetype variation makes the management
+    ratio differ between a field-operations entity (leaner) and a knowledge entity."""
+    rta, dha = _eid(db, "RTA"), _eid(db, "DHA")                 # field_ops vs knowledge
+    data = client.get(f"/api/planning/dghr/analytics/entity-comparison?entity_ids={rta},{dha}").json()
+    keys = {met["key"] for met in data["metrics"]}
+    assert {"support_to_core", "management_pct", "skilled_to_admin", "emiratization_pct"} <= keys
+    for met in data["metrics"]:
+        assert set(met["values"].keys()) == {str(rta), str(dha)}
+        for v in met["values"].values():
+            assert "value" in v and "display" in v
+    mp = {row: v["value"] for met in data["metrics"] if met["key"] == "management_pct"
+          for row, v in met["values"].items()}
+    assert mp[str(rta)] is not None and mp[str(dha)] is not None
+    assert mp[str(rta)] < mp[str(dha)]                          # field ops runs leaner on management
+
+
+def test_entity_comparison_csv_export(client, db):
+    rta, dha = _eid(db, "RTA"), _eid(db, "DHA")
+    r = client.get(f"/api/planning/dghr/report/entity-comparison.csv?entity_ids={rta},{dha}")
+    assert r.status_code == 200 and "text/csv" in r.headers["content-type"]
+    assert "Support-to-core FTE ratio" in r.text and "RTA" in r.text
 
 
 # ───────────────────────── multi-cycle (Phase A) ─────────────────────────

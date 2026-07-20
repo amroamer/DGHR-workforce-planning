@@ -16,10 +16,11 @@ from app import models as m
 from app.calc_seed import METHOD_EFFECTIVE_FROM, seed_calc_config
 from app.config import settings
 from app.db import Base, SessionLocal, engine
-from app.planning_seed import TYPESETS, ENTITIES, logo_url_for
+from app.planning_seed import TYPESETS, ENTITIES, category_for, logo_url_for
 from app.services import cycles, review, versioning
 from app.market_seed import seed_market_reference
-from app.services.human_capital import build_workforce_bands, build_workforce_rows, build_position_rows
+from app.services.human_capital import (build_workforce_bands, build_workforce_rows, build_position_rows,
+                                         level_weights_for, director_share_for)
 
 # Entity workforce-planning contacts — the named people who enter driver volumes. Attribution is
 # half of a trace ("who entered this?"), so these are seeded rather than left blank.
@@ -58,7 +59,6 @@ _FACTORS = [1.12, 0.94, 1.06, 0.88, 1.18, 0.97, 1.02, 1.09, 0.91, 1.15, 0.85, 1.
 # is a status nobody has ever seen render, so every rung the UI can show exists in the data.
 _ENTITY_PLAN: dict[str, tuple[int | None, int | None] | None] = {
     # code       received   approved        resulting roll-up status
-    "DEWA":     (None,      None),        # fully approved
     "DHA":      (None,      None),        # fully approved
     "RTA":      (None,      4),           # partially approved
     "DXBC":     (None,      3),           # partially approved
@@ -72,6 +72,19 @@ _ENTITY_PLAN: dict[str, tuple[int | None, int | None] | None] = {
     "DC":       None,                     # not started — hasn't opened the cycle
 }
 _DEFAULT_PLAN = (None, 0)
+
+# Workforce archetype per entity → job-level / seniority shape (human_capital.LEVEL_WEIGHT_PROFILES).
+# Field/operations bodies run leaner management over a large operational base; knowledge/regulatory
+# bodies carry more managers and professionals. This is what makes the cross-entity comparison report's
+# management, senior-management and skilled-vs-admin ratios differ between entities rather than share one
+# government-wide shape. Every code here must exist in _ENTITY_PLAN; the split is deliberate per entity.
+_ARCHETYPE: dict[str, str] = {
+    "RTA": "field_ops", "DM": "field_ops",
+    "DP": "field_ops", "DXBC": "field_ops", "GDRFA": "field_ops",
+    "DHA": "knowledge", "KHDA": "knowledge", "DC": "knowledge",
+    "DLD": "knowledge", "CDA": "knowledge", "DET": "knowledge",
+}
+_DEFAULT_ARCHETYPE = "balanced"
 
 
 def _status_for(j: int, received: int, approved: int) -> str | None:
@@ -159,11 +172,6 @@ _ADJUSTMENTS: dict[tuple[str, str], list[dict]] = {
          "headcount": 4, "starts_on": date(2026, 7, 1), "ends_on": date(2027, 6, 30),
          "counts_in_supply": True, "note": "Framework agreement, renewed annually."},
     ],
-    ("DEWA", "Load Dispatch Control Centre"): [
-        {"kind": "contractor", "label": "Relief controllers (agency)", "fte": 3.0, "headcount": 3,
-         "starts_on": date(2026, 7, 1), "ends_on": date(2027, 6, 30), "counts_in_supply": True,
-         "note": "Covers the certified-controller shift floor during leave."},
-    ],
     ("RTA", "Customer Happiness Centres"): [
         {"kind": "temporary", "label": "Seasonal counter staff", "fte": 6.0, "headcount": 8,
          "starts_on": date(2026, 6, 1), "ends_on": date(2027, 2, 28), "counts_in_supply": True,
@@ -241,6 +249,12 @@ def seed_submissions(db: Session, cycle_id: int | None) -> int:
         want_recv, want_appr = plan
         received = len(depts) if want_recv is None else min(want_recv, len(depts))
         approved = received if want_appr is None else min(want_appr, received)
+
+        # Archetype-driven workforce shape for this entity — stable across its departments (seeded by
+        # entity id) so the entity's job-level / seniority mix crisply reflects its archetype.
+        profile = _ARCHETYPE.get(e.code, _DEFAULT_ARCHETYPE)
+        level_weights = level_weights_for(profile, seed_i=e.id)
+        dir_share = director_share_for(profile, seed_i=e.id)
 
         for j, dep in enumerate(depts):
             i += 1
@@ -341,13 +355,13 @@ def seed_submissions(db: Session, cycle_id: int | None) -> int:
             # always reconcile. Emiratization is spread per entity for real range.
             filled, part_time, _ = _supply_shape(int(dep.approved_positions or 0))
             wrows = build_workforce_rows(filled, emirati_factor=0.80 + (i % 7) * 0.06,
-                                         part_time_heads=part_time)
+                                         part_time_heads=part_time, weights=level_weights)
             for wr in wrows:
                 db.add(m.SubmissionWorkforceRow(submission_id=sub.id, **wr))
 
             # S3: the per-position breakdown (role, grade band, headcount) that sits under the total
             # FTE; its `structural` rows drive the structurally-driven-roles count on S5.
-            for pr in build_position_rows(filled, seed_i=i):
+            for pr in build_position_rows(filled, seed_i=i, weights=level_weights, director_share=dir_share):
                 db.add(m.SubmissionPositionRow(submission_id=sub.id, **pr))
 
             # Demographic bands (gender/age/grade/region/nationality) behind the HC Overview donuts.
@@ -437,7 +451,9 @@ def seed_review_history(db: Session) -> dict:
             m.Department.entity_id == e.id, m.Department.name == name).first() if e else None
 
     # ── 1. A version chain: v1 approved, then revised. v1 must survive EXACTLY as signed off. ──
-    d = dept("DEWA", "Customer Care Centres")
+    # Hosted on a partially-approved entity's approved department, so revising it to a submitted v2
+    # leaves the sole fully-approved entity (DHA) intact for the "≥1 entity complete" invariant.
+    d = dept("RTA", "Roads Operations & Maintenance")
     if d:
         v1 = versioning.current_version(db, d.id)
         if v1 and v1.status == "approved":
@@ -596,7 +612,7 @@ def seed_clean(force: bool = False) -> dict:
         ts_by_key: dict[str, m.Typeset] = {}
         for pos, (key, name, fam, drivers) in enumerate(TYPESETS):
             t = m.Typeset(key=key, name=name, position=pos, primary_family=fam, default_drivers=drivers,
-                          version="1.0", effective_from=METHOD_EFFECTIVE_FROM)
+                          category=category_for(key), version="1.0", effective_from=METHOD_EFFECTIVE_FROM)
             db.add(t)
             db.flush()
             ts_by_key[key] = t

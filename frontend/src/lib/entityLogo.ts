@@ -8,7 +8,7 @@
 // asset, instead of probing for a 404. Not business data — brand wiring, like the persona presets.
 
 export const ENTITY_LOGO_CODES = new Set<string>([
-  "DEWA", "RTA", "DM", "DHA", "DP", "DC", "DXBC", "GDRFA", "DLD", "DET",
+  "RTA", "DM", "DHA", "DP", "DC", "DXBC", "GDRFA", "DLD", "DET",
 ]);
 
 /** Slugify an entity code into its logo filename stem — must match app.seed._logo_slug. */

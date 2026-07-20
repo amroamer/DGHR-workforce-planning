@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app import models as m
-from app.services import (ai_service, analytics, calc_config, cycles, formula, human_capital, review,
-                          revisions, sizing, supply, trace, versioning, workflow)
+from app.services import (ai_service, analytics, calc_config, cycles, entity_comparison, formula,
+                          human_capital, review, revisions, sizing, supply, trace, versioning, workflow)
 
 router = APIRouter(prefix="/api/planning", tags=["planning"])
 
@@ -1407,6 +1407,50 @@ def analytics_supply(basis: str = "received", scenario: str = "base",
     return analytics.supply_analysis(
         db, basis=_valid_basis(basis), scenario=calc_config.valid_scenario(db, scenario),
         entity_id=entity_id)
+
+
+def _parse_entity_ids(raw: str) -> list[int]:
+    """Comma-separated `entity_ids=1,3,5` → [1, 3, 5]. Tolerant of blanks/spaces."""
+    out: list[int] = []
+    for part in (raw or "").split(","):
+        part = part.strip()
+        if part.isdigit():
+            out.append(int(part))
+    return out
+
+
+@router.get("/dghr/analytics/entity-comparison")
+def analytics_entity_comparison(entity_ids: str = "", basis: str = "received",
+                                scenario: str = "base", db: Session = Depends(get_db)) -> dict:
+    """Side-by-side comparison of up to 5 entities on descriptive workforce-structure ratios.
+    `entity_ids` is a comma-separated list; extras beyond 5 are ignored."""
+    return entity_comparison.entity_comparison(
+        db, _parse_entity_ids(entity_ids), basis=_valid_basis(basis),
+        scenario=calc_config.valid_scenario(db, scenario))
+
+
+@router.get("/dghr/report/entity-comparison.csv")
+def export_entity_comparison(entity_ids: str = "", basis: str = "received",
+                             scenario: str = "base", db: Session = Depends(get_db)):
+    data = entity_comparison.entity_comparison(
+        db, _parse_entity_ids(entity_ids), basis=_valid_basis(basis),
+        scenario=calc_config.valid_scenario(db, scenario))
+    ents = data["entities"]
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    basis_label = next((b["label"] for b in data["bases"] if b["key"] == data["basis"]), data["basis"])
+    w.writerow(["Entity comparison report", f"basis: {basis_label}"])
+    w.writerow([])
+    w.writerow(["Metric", "Group", "Unit"] + [e["code"] for e in ents])
+    for metric in data["metrics"]:
+        w.writerow([metric["label"], metric["group"], metric["unit"]]
+                   + [metric["values"].get(str(e["id"]), {}).get("display", "—") for e in ents])
+
+    return Response(
+        content=buf.getvalue(), media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="entity_comparison.csv"'},
+    )
 
 
 @router.get("/dghr/entities")
