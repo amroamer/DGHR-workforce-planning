@@ -1,0 +1,26 @@
+# Multi-stage PRODUCTION build: compile the Vite SPA, then serve it as static
+# files via nginx. Used by docker-compose.prod.yml only. The dev docker-compose.yml
+# keeps using ./frontend/Dockerfile (which runs `npm run dev`) untouched.
+
+# --- Stage 1: build the static bundle ---
+FROM node:20-alpine AS build
+WORKDIR /app
+
+# Install from the lockfile for reproducible builds
+COPY package.json package-lock.json ./
+RUN npm ci
+
+COPY . .
+
+# VITE_API_URL is inlined at BUILD time (Vite bakes env into the bundle).
+# Empty string -> the API client uses same-origin relative /api/* paths, which
+# Caddy proxies to the backend. That means no CORS and no rebuild-on-URL-change.
+ARG VITE_API_URL=
+ENV VITE_API_URL=$VITE_API_URL
+RUN npm run build
+
+# --- Stage 2: serve the bundle behind nginx (itself fronted by Caddy) ---
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80

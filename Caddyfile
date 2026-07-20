@@ -1,0 +1,13 @@
+# Reverse proxy for the single-VM deploy. SITE_ADDRESS comes from .env:
+#   - a hostname (real domain or "<ip>.nip.io") -> Caddy auto-provisions HTTPS
+#   - ":80"                                      -> HTTP only (no cert)
+{$SITE_ADDRESS} {
+	encode gzip
+
+	# API traffic -> FastAPI backend.
+	@api path /api/*
+	reverse_proxy @api backend:8000
+
+	# Everything else -> the static SPA (nginx). SPA fallback handled inside nginx.
+	reverse_proxy frontend:80
+}

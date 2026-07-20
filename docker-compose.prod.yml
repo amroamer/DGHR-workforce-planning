@@ -1,0 +1,86 @@
+# Production compose for a single Azure VM. Use it STANDALONE (not as a -f override of
+# the dev file), because it deliberately differs from docker-compose.yml on nearly every
+# service (no source bind mounts, no host port publishing except Caddy, production frontend
+# build, restart policies, reverse proxy):
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# One origin: Caddy serves the SPA and proxies /api/* to the backend, so the browser sees
+# a single host -> no CORS. Only Caddy publishes ports (80/443); everything else talks over
+# the internal compose network.
+
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dghr}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-dghr}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dghr} -d ${POSTGRES_DB:-dghr}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-dghr}:${POSTGRES_PASSWORD:-dghr}@postgres:5432/${POSTGRES_DB:-dghr}
+      FRONTEND_ORIGIN: ${SITE_ADDRESS:-http://localhost}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DEMO_AI_MODE: ${DEMO_AI_MODE:-fallback}
+      MODEL_NAME: ${MODEL_NAME:-claude-sonnet-5}
+      # Keep false so a reseed / POST /api/demo/reset REFUSES to wipe a populated DB.
+      ALLOW_DB_RESET: ${ALLOW_DB_RESET:-false}
+      # Production: no --reload, run workers instead (see backend/entrypoint.sh).
+      UVICORN_RELOAD: "false"
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/api/health').status==200 else sys.exit(1)\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        # Empty -> same-origin relative /api calls (Caddy proxies them). No CORS.
+        VITE_API_URL: ${VITE_API_URL-}
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # A hostname (real domain or <ip>.nip.io) -> automatic HTTPS via Let's Encrypt.
+      # ":80" -> HTTP only (fine for a quick IP-based demo).
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:
+  caddy_config:

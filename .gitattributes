@@ -5,3 +5,7 @@
 *.png binary
 *.jpg binary
 *.docx binary
+
+# Shell scripts run in Linux containers/VMs — force LF regardless of contributor OS.
+*.sh text eol=lf
+backend/entrypoint.sh text eol=lf
