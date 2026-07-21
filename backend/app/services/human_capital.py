@@ -37,7 +37,12 @@ COST_PER_FTE = {
 
 # ── seed helpers (a realistic demographic profile derived from a department's headcount) ──
 _LEVEL_WEIGHTS = {"managers": 0.12, "professionals": 0.33, "associate_professionals": 0.35, "clerical_support": 0.20}
-_EMIRATI_BASE = {"managers": 0.46, "professionals": 0.34, "associate_professionals": 0.27, "clerical_support": 0.18}
+# Emiratization sits in a high government-wide band: every entity and every job level is 90%+, with
+# management most Emiratized. The FLOOR/CAP below guarantee the 90% policy no matter how the per-entity
+# emirati_factor tilts the base, so no entity's rollup can ever read below 90%.
+_EMIRATI_BASE = {"managers": 0.97, "professionals": 0.94, "associate_professionals": 0.92, "clerical_support": 0.91}
+EMIRATI_FLOOR = 0.90   # policy minimum — the rollup for every entity stays at or above this
+EMIRATI_CAP = 0.99     # leave a sliver non-Emirati so the nationality donut never reads a flat 100%
 
 # Job-level weight profiles by workforce ARCHETYPE. Field/operations bodies (police, roads, utilities,
 # municipal, customs, borders) run leaner management over a large operational base; knowledge/regulatory
@@ -126,7 +131,7 @@ def build_workforce_rows(headcount_total: int, *, emirati_factor: float = 1.0,
     for i, k in enumerate(LEVEL_KEYS):
         hc = heads[k]
         fte = round(hc - 0.5 * part_time[k], 2)      # a half-timer is 1 person, 0.5 FTE
-        emr = int(round(hc * _clamp(_EMIRATI_BASE[k] * emirati_factor)))
+        emr = int(round(hc * _clamp(_EMIRATI_BASE[k] * emirati_factor, EMIRATI_FLOOR, EMIRATI_CAP)))
         rows.append({"job_level": k, "headcount": hc, "fte": fte, "emirati_count": min(emr, hc),
                      # Cost follows TIME, not bodies — you don't pay a half-timer a full salary.
                      "annual_cost_aed": round(fte * COST_PER_FTE[k], 2), "position": i})
@@ -319,13 +324,13 @@ WORKFORCE_BANDS: dict[str, dict] = {
     },
     "age_band": {
         "label": "Age",
-        "buckets": [("under_30", "Under 30"), ("30_50", "30–50"), ("over_50", "Over 50")],
+        "buckets": [("under_30", "Under 30"), ("30_50", "30-50"), ("over_50", "Over 50")],
         "weights": {"under_30": 0.26, "30_50": 0.60, "over_50": 0.14},
     },
     "grade_band": {
         "label": "Grade / wage band",
-        "buckets": [("g_high", "Senior, >30k AED/mo"), ("g_mid", "Mid, 20–30k"),
-                    ("g_low", "Junior, 10–20k"), ("g_entry", "Entry, <10k")],
+        "buckets": [("g_high", "Senior, >30k AED/mo"), ("g_mid", "Mid, 20-30k"),
+                    ("g_low", "Junior, 10-20k"), ("g_entry", "Entry, <10k")],
         "weights": {"g_high": 0.12, "g_mid": 0.30, "g_low": 0.36, "g_entry": 0.22},
     },
     "region": {
@@ -344,8 +349,8 @@ WORKFORCE_BANDS: dict[str, dict] = {
     # S5/S9: tenure distribution alongside the job-level distribution.
     "tenure": {
         "label": "Tenure",
-        "buckets": [("t_lt2", "Under 2 yrs"), ("t_2_5", "2–5 yrs"),
-                    ("t_5_10", "5–10 yrs"), ("t_gt10", "Over 10 yrs")],
+        "buckets": [("t_lt2", "Under 2 yrs"), ("t_2_5", "2-5 yrs"),
+                    ("t_5_10", "5-10 yrs"), ("t_gt10", "Over 10 yrs")],
         "weights": {"t_lt2": 0.18, "t_2_5": 0.30, "t_5_10": 0.30, "t_gt10": 0.22},
     },
 }

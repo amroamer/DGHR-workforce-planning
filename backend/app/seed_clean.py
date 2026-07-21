@@ -122,7 +122,7 @@ _PART_TIME_PCT = (0, 6, 12, 3, 9, 0, 15, 5, 8, 2)
 _DRIVER_SOURCE = {
     "demand": "FY2026 case-management system extract",
     "ratio": "HR establishment register (FY2026)",
-    "coverage": "Rostering system — approved shift pattern",
+    "coverage": "Rostering system, approved shift pattern",
     "project": "Approved capital portfolio (PMO register)",
     "mandate": "Enabling legislation / licensing schedule",
 }
@@ -175,12 +175,12 @@ _ADJUSTMENTS: dict[tuple[str, str], list[dict]] = {
     ("RTA", "Customer Happiness Centres"): [
         {"kind": "temporary", "label": "Seasonal counter staff", "fte": 6.0, "headcount": 8,
          "starts_on": date(2026, 6, 1), "ends_on": date(2027, 2, 28), "counts_in_supply": True,
-         "note": "Peak cover; eight people on part-time rosters — 8 heads, 6.0 FTE."},
+         "note": "Peak cover; eight people on part-time rosters: 8 heads, 6.0 FTE."},
     ],
     ("DHA", "Corporate Services"): [
         {"kind": "outsourced", "label": "Facilities management contract", "fte": 12.0, "headcount": 0,
          "starts_on": date(2026, 1, 1), "counts_in_supply": False,
-         "note": "Delivered as a service — the capacity is the vendor's, so it is NOT counted in our supply."},
+         "note": "Delivered as a service, the capacity is the vendor's, so it is NOT counted in our supply."},
     ],
     # Deliberately stale: this loan ENDED in June but is still marked as counting in supply. The
     # quality flag catches it ("counted in supply, outside its stated dates") instead of the platform
@@ -188,7 +188,7 @@ _ADJUSTMENTS: dict[tuple[str, str], list[dict]] = {
     ("DP", "Criminal Investigation"): [
         {"kind": "secondment_out", "label": "Seconded to the federal records programme", "fte": 1.0,
          "headcount": 1, "starts_on": date(2025, 10, 1), "ends_on": date(2026, 6, 30),
-         "counts_in_supply": True, "note": "Officer returned at the end of June — needs review."},
+         "counts_in_supply": True, "note": "Officer returned at the end of June, needs review."},
     ],
 }
 
@@ -344,7 +344,7 @@ def seed_submissions(db: Session, cycle_id: int | None) -> int:
                     name=dname, unit=d.get("unit", ""),
                     family=d.get("family", "demand"), volume=vol,
                     forecast=round(float(vol) * 1.06, 1), params=d.get("params", {}), position=pos,
-                    source=_DRIVER_SOURCE.get(d.get("family", "demand"), "Entity submission — planning stepper"),
+                    source=_DRIVER_SOURCE.get(d.get("family", "demand"), "Entity submission, planning stepper"),
                     entered_by_id=contact.id if contact else None,
                     entered_by_name=contact.name if contact else "",
                     entered_at=entered_at))
@@ -354,7 +354,9 @@ def seed_submissions(db: Session, cycle_id: int | None) -> int:
             # from the same _supply_shape(approved) the department row was built with, so the two
             # always reconcile. Emiratization is spread per entity for real range.
             filled, part_time, _ = _supply_shape(int(dep.approved_positions or 0))
-            wrows = build_workforce_rows(filled, emirati_factor=0.80 + (i % 7) * 0.06,
+            # Emiratization is a high band (90%+ everywhere): a tight per-entity tilt near 1.0 keeps
+            # the spread inside the floor/cap the model enforces, so every entity rolls up at 90%+.
+            wrows = build_workforce_rows(filled, emirati_factor=0.99 + (i % 6) * 0.004,
                                          part_time_heads=part_time, weights=level_weights)
             for wr in wrows:
                 db.add(m.SubmissionWorkforceRow(submission_id=sub.id, **wr))
@@ -494,7 +496,7 @@ def seed_review_history(db: Session) -> dict:
                     element_key=drv.element_key or m.element_key(drv.name),
                     element_label=drv.name,
                     message=("This volume is 18% above last cycle with no stated cause. "
-                             "What changed — demand, or the way it's counted?"),
+                             "What changed: demand, or the way it's counted?"),
                     author=reviewers[0].name, side="dghr", status="open",
                     created_at=datetime.utcnow() - timedelta(days=13)))
                 sub.status = "in_clarification"
@@ -508,7 +510,7 @@ def seed_review_history(db: Session) -> dict:
             db.add(m.SubmissionClarification(
                 submission_id=sub.id, element_type="supply", element_key="supply",
                 element_label="Supply reconciliation",
-                message="Nine vacancies against an approved establishment of 74 — are these funded?",
+                message="Nine vacancies against an approved establishment of 74, are these funded?",
                 author=reviewers[1 % len(reviewers)].name, side="dghr", status="open",
                 created_at=datetime.utcnow() - timedelta(days=2)))
             sub.status = "in_clarification"
@@ -537,14 +539,14 @@ def seed_review_history(db: Session) -> dict:
             db.add(m.SubmissionClarification(
                 submission_id=sub.id, element_type="profile", element_key="profile",
                 element_label="Workforce profile",
-                message=("Emiratization reads 30.2% here against a higher entity average. "
-                         "Is the split by job level accurate, or is a cohort miscoded?"),
+                message=("Emiratization is strong overall, but the split by job level looks uneven "
+                         "against the entity average. Is the level breakdown accurate, or is a cohort miscoded?"),
                 author=reviewers[1 % len(reviewers)].name, side="dghr", status="open",
                 created_at=datetime.utcnow() - timedelta(days=3)))
             db.add(m.SubmissionClarification(
                 submission_id=sub.id, element_type="supply", element_key="supply",
                 element_label="Supply reconciliation",
-                message=("Two vacancies against 55 approved positions — are these funded for the "
+                message=("Two vacancies against 55 approved positions, are these funded for the "
                          "cycle, and is any contractor cover being counted as available FTE?"),
                 author=reviewers[0].name, side="dghr", status="open",
                 created_at=datetime.utcnow() - timedelta(days=1)))
@@ -584,7 +586,7 @@ def seed_clean(force: bool = False) -> dict:
             raise ReseedRefused(
                 "Refusing to reseed: the database already holds data that this would DESTROY "
                 "(seed_clean TRUNCATEs every table). To run it deliberately, set ALLOW_DB_RESET=true "
-                "or use `python -m app.seed_clean --force`. Back up first — see CLAUDE.md > Database "
+                "or use `python -m app.seed_clean --force`. Back up first, see CLAUDE.md > Database "
                 "safety. First-run seeding of an empty DB is unaffected."
             )
         _truncate(db)

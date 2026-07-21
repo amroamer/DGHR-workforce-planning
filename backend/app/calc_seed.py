@@ -150,10 +150,10 @@ PARAMETERS: list[dict] = [
          value_type="float", unit="per year",
          description="The rate at which today's workforce erodes each year if leavers are not "
                      "replaced. Applied to supply in the multi-year projection.",
-         source="DGHR workforce statistics FY2022–FY2026, government-wide average"),
+         source="DGHR workforce statistics FY2022-FY2026, government-wide average"),
     dict(key="projection.horizon_years", label="Projection horizon", value="5",
          value_type="int", unit="years",
-         description="How many years forward the demand–supply projection runs.",
+         description="How many years forward the demand-supply projection runs.",
          source="Workforce Sizing Methodology v1.0 §6, Planning horizon"),
     # Clarification ageing. Rows, not literals, for the same reason as every other constant here:
     # a threshold buried in Python can't be versioned, attributed, or shown to the people it judges.
@@ -174,7 +174,7 @@ PARAMETERS: list[dict] = [
          source="Workforce Sizing Methodology v1.0 §6.1, Growth assumptions"),
     # The Emiratization target the Human Capital Overview gauge measures actual against. A row, not a
     # literal, so the target it judges entities by carries a source and an owner like everything else.
-    dict(key="emiratization.target_pct", label="Emiratization target", value="40",
+    dict(key="emiratization.target_pct", label="Emiratization target", value="90",
          value_type="float", unit="%",
          description="Government-wide Emiratization target the Human Capital Overview gauge measures "
                      "the actual rate against.",

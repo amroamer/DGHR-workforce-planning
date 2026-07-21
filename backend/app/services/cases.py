@@ -5,12 +5,12 @@ opposite audience + last-updated bump (via services.workflow)."""
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
 from app import models as m
-from app.services import workflow
+from app.services import workflow, revisions, calc_config
 
 STATUS_LABELS = {
     "not_started": "Not Started", "in_progress": "In Progress", "submitted": "Submitted",
@@ -82,6 +82,157 @@ def _case_summary(db: Session, c: m.Case) -> dict:
     }
 
 
+# ─────────────────────── submission-review clarifications bridge ───────────────────────
+# DGHR raises element-level clarifications during submission review (model SubmissionClarification,
+# via services/review + planning router). Those are a SECOND clarification channel and used to live
+# ONLY inside the submission stepper, so a clarification sent from review never appeared in the
+# entity's Case-backed "Clarifications & Requests from DGHR" inbox — it looked like it never arrived.
+# We surface them here read-side under a disjoint synthetic id range. SubmissionClarification stays
+# the single source of truth (no duplicate rows, no migration); detail/reply/action for a synthetic
+# id route straight back to the thread.
+SUBCLAR_ID_BASE = 1_000_000_000
+
+# SubmissionClarification.status → Case-inbox status the frontend already renders.
+_SUBCLAR_STATUS = {"open": "open", "answered": "responded", "resolved": "resolved"}
+
+
+def _subclar_sla(db: Session) -> tuple[float, float]:
+    cfg = calc_config.config(db)
+    return (cfg.num("clarification.sla_days", 5.0), cfg.num("clarification.escalate_after_days", 10.0))
+
+
+def _submission_clarification_roots(db: Session, *, entity_id=None):
+    """Root DGHR submission-review clarifications (side='dghr', no parent), each joined to its
+    department + entity (submission → department → entity). Optionally scoped to one entity."""
+    q = (db.query(m.SubmissionClarification, m.Department, m.Entity)
+         .join(m.DepartmentSubmission, m.SubmissionClarification.submission_id == m.DepartmentSubmission.id)
+         .join(m.Department, m.DepartmentSubmission.department_id == m.Department.id)
+         .join(m.Entity, m.Department.entity_id == m.Entity.id)
+         .filter(m.SubmissionClarification.side == "dghr",
+                 m.SubmissionClarification.parent_id.is_(None)))
+    if entity_id is not None:
+        q = q.filter(m.Department.entity_id == entity_id)
+    return q.order_by(m.SubmissionClarification.created_at.desc()).all()
+
+
+def _subclar_summary(db: Session, clar, dept, ent, sla_days: float, escalate_after: float) -> dict:
+    age = revisions.clarification_age(clar, sla_days=sla_days, escalate_after=escalate_after)
+    priority = ("High" if age["level"] == "escalated"
+                else "Medium" if age["level"] in ("overdue", "due_soon") else "Low")
+    due = (clar.created_at.date() + timedelta(days=int(sla_days))) if clar.created_at else None
+    return {
+        "id": SUBCLAR_ID_BASE + clar.id,
+        "ref": f"CLR-S{clar.id:05d}",
+        "kind": "clarification",
+        "entity_id": dept.entity_id,
+        "entity": ent.name if ent else "",
+        "package_label": f"{dept.name} · {clar.element_label or clar.element_type}",
+        "priority": priority,
+        "category": "Submission review",
+        "status": _SUBCLAR_STATUS.get(clar.status, "open"),
+        "issue_summary": clar.message,
+        "due_date": due.isoformat() if due else None,
+        "returned_on": None,
+        "resolved_on": clar.resolved_at.date().isoformat() if clar.resolved_at else None,
+        "created_at": clar.created_at.isoformat() if clar.created_at else None,
+        "updated_at": clar.created_at.isoformat() if clar.created_at else None,
+    }
+
+
+def _subclar_summaries(db: Session, *, entity_id=None, tab="all", search=None) -> list[dict]:
+    sla_days, escalate_after = _subclar_sla(db)
+    out = [_subclar_summary(db, clar, dept, ent, sla_days, escalate_after)
+           for clar, dept, ent in _submission_clarification_roots(db, entity_id=entity_id)]
+    if tab == "open":
+        out = [s for s in out if s["status"] == "open"]
+    elif tab == "returned":
+        out = []                       # element clarifications are never package "returns"
+    elif tab == "resolved":
+        out = [s for s in out if s["status"] == "resolved"]
+    if search:
+        like = search.lower()
+        out = [s for s in out if like in s["ref"].lower() or like in (s["issue_summary"] or "").lower()]
+    return out
+
+
+def _subclar_detail(db: Session, clar_id: int) -> dict | None:
+    root = db.get(m.SubmissionClarification, clar_id)
+    if not root or root.parent_id is not None:
+        return None
+    sub = db.get(m.DepartmentSubmission, root.submission_id)
+    dept = db.get(m.Department, sub.department_id) if sub else None
+    ent = db.get(m.Entity, dept.entity_id) if dept else None
+    sla_days, escalate_after = _subclar_sla(db)
+    summary = _subclar_summary(db, root, dept, ent, sla_days, escalate_after)
+    thread = [root] + (db.query(m.SubmissionClarification)
+                       .filter(m.SubmissionClarification.parent_id == root.id)
+                       .order_by(m.SubmissionClarification.created_at, m.SubmissionClarification.id).all())
+    age = revisions.clarification_age(root, sla_days=sla_days, escalate_after=escalate_after)
+    audit = (db.query(m.AuditEvent).filter(m.AuditEvent.submission_id == root.submission_id)
+             .order_by(m.AuditEvent.created_at).all())
+    return {
+        **summary,
+        "assigned_to": None,
+        "corrections": [],
+        "sla_days": int(round(sla_days - age["days_open"])),
+        "messages": [{
+            "id": t.id, "side": t.side,
+            "author": t.author or ("DGHR Analyst" if t.side == "dghr" else "Entity Contact"),
+            "author_role": "DGHR Analyst" if t.side == "dghr" else "Entity Contact",
+            "body": t.message, "created_at": t.created_at.isoformat() if t.created_at else None,
+        } for t in thread],
+        "audit": [{"label": a.label, "actor_name": a.actor_name,
+                   "created_at": a.created_at.isoformat() if a.created_at else None} for a in audit],
+        "evidence": [],
+        "entity_name": ent.name if ent else "",
+    }
+
+
+def _subclar_post_message(db: Session, *, clar_id: int, side: str, body: str) -> dict | None:
+    """A reply typed in the inbox routes to the SAME thread the submission stepper uses, so both
+    surfaces stay one conversation and the opposite portal is notified."""
+    root = db.get(m.SubmissionClarification, clar_id)
+    if not root:
+        return None
+    sub = db.get(m.DepartmentSubmission, root.submission_id)
+    dept = db.get(m.Department, sub.department_id) if sub else None
+    eid = dept.entity_id if dept else None
+    dname = dept.name if dept else "Submission"
+    db.add(m.SubmissionClarification(
+        submission_id=root.submission_id, element_type=root.element_type, element_id=root.element_id,
+        element_key=root.element_key, element_label=root.element_label, message=body,
+        author=("Entity Contact" if side == "entity" else "DGHR Analyst"),
+        side=side, status="answered" if side == "entity" else "open", parent_id=root.id))
+    if side == "entity":
+        root.status = "answered"
+        workflow.add_audit(db, label=f"Entity answered clarification on {dname}", actor_name="Entity Contact",
+                           entity_id=eid, submission_id=root.submission_id, verb="clarified")
+        workflow.notify(db, audience="dghr", kind="clarification", entity_id=eid,
+                        title=f"{dname}: clarification answered", body=body)
+    else:
+        root.status = "open"
+        workflow.notify(db, audience="entity", kind="clarification", entity_id=eid,
+                        title=f"{dname}: clarification updated", body=body)
+    workflow.bump_last_updated(db)
+    db.commit()
+    return _subclar_detail(db, clar_id)
+
+
+def _subclar_action(db: Session, *, clar_id: int, action: str) -> dict | None:
+    root = db.get(m.SubmissionClarification, clar_id)
+    if not root:
+        return None
+    if action in ("resolve", "accept_resubmission"):
+        root.status = "resolved"
+        root.resolved_at = datetime.utcnow()
+    elif action == "return_to_entity":
+        root.status = "open"
+    # escalate / assign / request_evidence have no element-level equivalent — left as no-ops.
+    workflow.bump_last_updated(db)
+    db.commit()
+    return _subclar_detail(db, clar_id)
+
+
 def list_cases(db: Session, *, side="dghr", entity_id=None, tab="all", search=None, page=1, page_size=50) -> dict:
     q = db.query(m.Case)
     if entity_id is not None:
@@ -103,12 +254,20 @@ def list_cases(db: Session, *, side="dghr", entity_id=None, tab="all", search=No
     def grp(kind, status):
         return [_case_summary(db, c) for c in cases if c.kind == kind and (status is None or c.status == status)]
 
-    open_clarifications = [c for c in cases if c.kind == "clarification" and c.status == "open"]
-    returns = [c for c in cases if c.kind == "return" and c.status == "open"]
-    resolved = [c for c in cases if c.status == "resolved"]
+    open_clarifications = [_case_summary(db, c) for c in cases if c.kind == "clarification" and c.status == "open"]
+    returns = [_case_summary(db, c) for c in cases if c.kind == "return" and c.status == "open"]
+    resolved = [_case_summary(db, c) for c in cases if c.status == "resolved"]
+    all_rows = [_case_summary(db, c) for c in cases]
+
+    # Merge in DGHR submission-review clarifications so the inbox honestly reflects every clarification
+    # DGHR sent, not just the package-level Case ones.
+    subclars = _subclar_summaries(db, entity_id=entity_id, tab=tab, search=search)
+    open_clarifications += [s for s in subclars if s["status"] == "open"]
+    resolved += [s for s in subclars if s["status"] == "resolved"]
+    all_rows += subclars
 
     counts = {
-        "all": len(cases),
+        "all": len(all_rows),
         "open": len(open_clarifications),
         "returned": len(returns),
         "resolved": len(resolved),
@@ -116,15 +275,17 @@ def list_cases(db: Session, *, side="dghr", entity_id=None, tab="all", search=No
     return {
         "counts": counts,
         "groups": {
-            "open_clarifications": [_case_summary(db, c) for c in open_clarifications],
-            "returned_submissions": [_case_summary(db, c) for c in returns],
-            "resolved": [_case_summary(db, c) for c in resolved[:20]],
+            "open_clarifications": open_clarifications,
+            "returned_submissions": returns,
+            "resolved": resolved[:20],
         },
-        "all": [_case_summary(db, c) for c in cases],
+        "all": all_rows,
     }
 
 
 def case_detail(db: Session, case_id: int) -> dict | None:
+    if case_id >= SUBCLAR_ID_BASE:
+        return _subclar_detail(db, case_id - SUBCLAR_ID_BASE)
     c = db.get(m.Case, case_id)
     if not c:
         return None
@@ -176,6 +337,16 @@ def clarifications_kpis(db: Session, entity_id=None) -> dict:
             if d >= 0:
                 deltas.append(d)
     avg_response = round(sum(deltas) / len(deltas), 1) if deltas else 1.6
+
+    # Fold in DGHR submission-review clarifications so the KPI tiles match the merged inbox list.
+    sla_days, escalate_after = _subclar_sla(db)
+    for clar, _dept, _ent in _submission_clarification_roots(db, entity_id=entity_id):
+        if clar.status == "open":
+            open_clar += 1
+            if revisions.clarification_age(clar, sla_days=sla_days, escalate_after=escalate_after)["level"] in ("overdue", "escalated"):
+                overdue += 1
+        elif clar.status == "resolved":
+            resolved += 1
 
     return {
         "open_clarifications": open_clar,
@@ -242,6 +413,8 @@ def return_submission(db: Session, *, entity_id: int, package_key: str, reason: 
 
 
 def post_message(db: Session, *, case_id: int, side: str, body: str, author_id: int | None = None) -> dict:
+    if case_id >= SUBCLAR_ID_BASE:
+        return _subclar_post_message(db, clar_id=case_id - SUBCLAR_ID_BASE, side=side, body=body)
     c = db.get(m.Case, case_id)
     db.add(m.CaseMessage(case_id=case_id, author_id=author_id, side=side, body=body))
     if side == "entity":
@@ -259,6 +432,8 @@ def post_message(db: Session, *, case_id: int, side: str, body: str, author_id: 
 
 
 def case_action(db: Session, *, case_id: int, action: str, reviewer_id: int | None = None) -> dict:
+    if case_id >= SUBCLAR_ID_BASE:
+        return _subclar_action(db, clar_id=case_id - SUBCLAR_ID_BASE, action=action)
     c = db.get(m.Case, case_id)
     if action == "resolve" or action == "accept_resubmission":
         c.status = "resolved"
@@ -297,6 +472,8 @@ def case_action(db: Session, *, case_id: int, action: str, reviewer_id: int | No
 
 
 def entity_acknowledge(db: Session, *, case_id: int) -> dict:
+    if case_id >= SUBCLAR_ID_BASE:                     # ack is a no-op for element threads
+        return _subclar_detail(db, case_id - SUBCLAR_ID_BASE)
     c = db.get(m.Case, case_id)
     workflow.add_audit(db, label="Entity acknowledged", actor_name="Entity Contact", entity_id=c.entity_id, case_id=case_id)
     workflow.bump_last_updated(db)
@@ -305,6 +482,8 @@ def entity_acknowledge(db: Session, *, case_id: int) -> dict:
 
 
 def entity_resubmit(db: Session, *, case_id: int) -> dict:
+    if case_id >= SUBCLAR_ID_BASE:                     # element threads have no package to resubmit
+        return _subclar_detail(db, case_id - SUBCLAR_ID_BASE)
     c = db.get(m.Case, case_id)
     ep = _entity_package(db, c.entity_id, _key_from_label(c.category))
     if ep:
