@@ -347,40 +347,32 @@ export function DemographicDonut({ buckets, height = 150, colors, animKey }: {
   );
 }
 
-// ─────────────── Half-donut gauge (actual vs target) ───────────────
-export function Gauge({ value, target, label, size = 200 }: { value: number; target: number; label?: string; size?: number }) {
+// ─────────────── Radial progress ring (actual vs target) ───────────────
+// A FULL donut ring, matching the demographic donut cards on the same page. Replaces the old
+// half-gauge, whose target marker crammed into the crowded right end and looked broken whenever
+// actual and target were close (e.g. 93.2% vs 90%). The ring fills to `value`, turns green once the
+// target is met (blue while below it), and the centre reads the value against the target. There is
+// no on-ring marker to go wrong.
+export function Gauge({ value, target, size = 184 }: { value: number; target: number; size?: number }) {
   const c = useChartTheme();
-  const t = useTone();
-  // Geometry derived so the full semicircle + round caps sit INSIDE the viewBox
-  // (cy used to overshoot H, clipping the arc bottom and the % readout).
-  const w = size * 0.09, R = size * 0.42, W = size, cx = size / 2;
-  const cy = R + w / 2 + 4, H = cy + w / 2 + 2;
-  const pol = (frac: number, r: number) => {
-    const a = Math.PI * (1 - Math.min(1, Math.max(0, frac)));
-    return [cx + r * Math.cos(a), cy - r * Math.sin(a)];
-  };
-  const arc = (frac: number, r: number, w: number, color: string) => {
-    const [x0, y0] = pol(0, r), [x1, y1] = pol(frac, r);
-    const large = frac > 0.5 ? 1 : 0;
-    return <path d={`M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`} fill="none" stroke={color} strokeWidth={w} strokeLinecap="round" />;
-  };
-  const frac = target > 0 ? value / 100 : 0;
   const good = value >= target;
-  const [tx, ty] = pol(target / 100, R);
+  const cx = size / 2, cy = size / 2;
+  const w = size * 0.1;                         // ring thickness
+  const r = size / 2 - w / 2 - 2;               // radius so the stroke sits inside the viewBox
+  const circ = 2 * Math.PI * r;
+  const frac = Math.max(0, Math.min(1, value / 100));
   return (
-    <div className="flex h-full flex-col items-center justify-center">
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ maxWidth: size }}>
-        {arc(1, R, w, c.track)}
-        {arc(frac, R, w, good ? c.success : c.primary)}
-        <line x1={cx + (R - size * 0.07) * Math.cos(Math.PI * (1 - target / 100))}
-          y1={cy - (R - size * 0.07) * Math.sin(Math.PI * (1 - target / 100))} x2={tx} y2={ty}
-          stroke={c.danger} strokeWidth={2} />
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={size * 0.2} fontWeight={700} fill={c.text1}>{value}%</text>
+    <div className="flex h-full items-center justify-center">
+      <svg viewBox={`0 0 ${size} ${size}`} width="100%" style={{ maxWidth: size }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={c.track} strokeWidth={w} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke={good ? c.success : c.primary} strokeWidth={w}
+          strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={circ * (1 - frac)}
+          transform={`rotate(-90 ${cx} ${cy})`} />
+        <text x={cx} y={cy - size * 0.035} textAnchor="middle" dominantBaseline="central"
+          fontSize={size * 0.2} fontWeight={800} fill={c.text1}>{value}%</text>
+        <text x={cx} y={cy + size * 0.135} textAnchor="middle" dominantBaseline="central"
+          fontSize={size * 0.078} fill={c.axis}>of {target}% target</text>
       </svg>
-      <div className="-mt-1 text-center text-xs text-text3">
-        {label ?? "vs target"} <b style={{ color: t.fg(good ? c.success : c.danger) }}>{target}%</b>
-        {!good && target > 0 && <span className="text-text3">, {Math.round((target - value) * 10) / 10}pt to go</span>}
-      </div>
     </div>
   );
 }
