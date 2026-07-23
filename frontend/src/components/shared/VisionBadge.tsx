@@ -1,7 +1,7 @@
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Teal "Layer B Preview · Illustrative" chip (SPEC §4.3). MANDATORY on every §9.5
+// Teal "Layer B Preview, Illustrative" chip (SPEC §4.3). MANDATORY on every §9.5
 // vision-zone card; must never appear elsewhere.
 export function VisionBadge({ className }: { className?: string }) {
   return (
@@ -12,7 +12,7 @@ export function VisionBadge({ className }: { className?: string }) {
       )}
     >
       <Sparkles size={12} />
-      Layer B Preview · Illustrative
+      Layer B Preview, Illustrative
     </span>
   );
 }

@@ -100,7 +100,7 @@ export function DataCollection() {
         {/* KPIs */}
         <div className="mt-4 grid grid-cols-4 gap-4">
           <KpiCard tone="blue" icon={<Boxes size={20} />} value={k?.data_packages} label="Data Packages" sublabel="Configured" />
-          <KpiCard tone="green" icon={<ClipboardList size={20} />} value={k?.total_fields} label="Total Fields" sublabel={`${k?.mandatory_fields ?? 0} Mandatory · ${k?.optional_fields ?? 0} Optional`} />
+          <KpiCard tone="green" icon={<ClipboardList size={20} />} value={k?.total_fields} label="Total Fields" sublabel={`${k?.mandatory_fields ?? 0} Mandatory, ${k?.optional_fields ?? 0} Optional`} />
           <KpiCard tone="orange" icon={<FileText size={20} />} value={k?.section_types} label="Section-Type Templates" sublabel="Configured" />
           <KpiCard tone="purple" icon={<CalendarDays size={20} />} value={c?.deadline} label="Submission Deadline" sublabel={`${k?.days_remaining ?? 0} days remaining`} />
         </div>
@@ -148,7 +148,7 @@ export function DataCollection() {
                   {expanded.has(p.id) && (
                     <div className="flex flex-wrap gap-1.5 px-2 pb-3 pl-14">
                       {p.field_groups.map((g) => (
-                        <span key={g.name} className="rounded-full bg-page px-2.5 py-1 text-[11px] text-text2">{g.name} · {g.field_count}</span>
+                        <span key={g.name} className="rounded-full bg-page px-2.5 py-1 text-[11px] text-text2">{g.name}, {g.field_count}</span>
                       ))}
                     </div>
                   )}
@@ -195,7 +195,7 @@ export function DataCollection() {
 
             <Card className="p-5">
               <div className="mb-2 flex items-center justify-between"><h3 className="text-sm font-semibold text-text1">Activity & Audit</h3><button onClick={() => toast.message("Available in the full release")} className="text-xs font-semibold text-primary hover:underline">View all</button></div>
-              <div className="flex items-center gap-2 text-sm text-text2"><CheckCircle2 size={15} className="text-success" /> {c?.version_label} updated by DGHR Admin · Today, 10:30 AM</div>
+              <div className="flex items-center gap-2 text-sm text-text2"><CheckCircle2 size={15} className="text-success" /> {c?.version_label} updated by DGHR Admin, Today, 10:30 AM</div>
             </Card>
           </div>
         </div>

@@ -59,7 +59,7 @@ function Select({ label, value, options, onChange }: {
   );
 }
 
-/** What the headline is standing on: approved · received-awaiting-sign-off · outstanding (or, under
+/** What the headline is standing on: approved, received-awaiting-sign-off, outstanding (or, under
  *  the estimated basis, modelled). Always shows the TRUE collection state regardless of basis — the
  *  point of the strip is that you cannot read a total without seeing its coverage. */
 function CoverageMeter({ cov }: { cov: Coverage }) {

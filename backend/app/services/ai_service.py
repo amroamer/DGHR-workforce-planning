@@ -807,14 +807,14 @@ def apply_chase(db: Session, clarification_id: int, action: str, message: str) -
         workflow.notify(db, audience="entity", kind="reminder", entity_id=entity_id,
                         title=f"{dept.name if dept else 'Department'}, reminder: clarification awaiting your response",
                         body=body)
-        workflow.add_audit(db, label=f"Reminder sent to {ent.name if ent else 'entity'} · {element}",
+        workflow.add_audit(db, label=f"Reminder sent to {ent.name if ent else 'entity'}, {element}",
                            actor_name="DGHR Central Team", entity_id=entity_id,
                            submission_id=c.submission_id, verb="reminded")
     else:  # escalate
         workflow.notify(db, audience="dghr", kind="clarification", entity_id=entity_id,
                         title=f"Escalated: {dept.name if dept else 'Department'}, clarification unanswered",
                         body=body)
-        workflow.add_audit(db, label=f"Clarification escalated · {dept.name if dept else '-'} · {element}",
+        workflow.add_audit(db, label=f"Clarification escalated, {dept.name if dept else '-'}, {element}",
                            actor_name="DGHR Central Team", entity_id=entity_id,
                            submission_id=c.submission_id, verb="escalated")
     workflow.bump_last_updated(db)

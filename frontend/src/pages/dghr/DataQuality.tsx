@@ -166,7 +166,7 @@ export function DataQuality() {
               {(data?.anomalies ?? []).map((a) => (
                 <button key={a.id} onClick={() => { setAnomaly(a); setNarrative(null); }} className="flex w-full gap-2.5 rounded-lg border border-border p-2.5 text-left hover:bg-page">
                   {sevIcon(a.severity)}
-                  <div className="flex-1"><div className="text-sm font-medium text-text1">{a.title}</div><div className="text-[11px] text-text3">{a.entity} · {PKG_LABEL[a.package_key] ?? a.package_key}</div></div>
+                  <div className="flex-1"><div className="text-sm font-medium text-text1">{a.title}</div><div className="text-[11px] text-text3">{a.entity}, {PKG_LABEL[a.package_key] ?? a.package_key}</div></div>
                   <div className="flex flex-col items-end gap-1"><StatusBadge value={a.severity.toLowerCase()} label={a.severity} /><span className="text-[11px] font-semibold text-text2">{a.confidence}%</span></div>
                 </button>
               ))}
@@ -181,7 +181,7 @@ export function DataQuality() {
                 <div key={e.key} className={cn("rounded-card border border-border p-3 text-center", ["bg-danger-bg", "bg-warning-bg", "bg-info-bg"][i])}>
                   <div className="text-2xl font-bold text-text1">{fmt(e.count)}</div>
                   <div className="text-xs font-semibold text-text2">{e.label}</div>
-                  <div className="mt-1 text-[10px] text-text3">Across {e.entities} entities · {e.pct}% of total records</div>
+                  <div className="mt-1 text-[10px] text-text3">Across {e.entities} entities, {e.pct}% of total records</div>
                 </div>
               ))}
             </div>
@@ -221,7 +221,7 @@ export function DataQuality() {
         </div>
 
         <div className="mt-4 flex items-center justify-between text-xs text-text3">
-          <span>DGHR Data Collection Command Center · Data Quality &amp; Validation</span>
+          <span>DGHR Data Collection Command Center, Data Quality &amp; Validation</span>
           <span>All times shown in GST (UTC+4)</span>
         </div>
       </PageBody>
@@ -232,7 +232,7 @@ export function DataQuality() {
           <div className="space-y-4">
             <div className="rounded-card border border-border bg-card p-4">
               <div className="flex items-center gap-2">{sevIcon(iss.severity)}<span className="font-semibold text-text1">{iss.issue_type}</span></div>
-              <div className="mt-1 text-xs text-text3">{iss.entity} · {PKG_LABEL[iss.package_key] ?? iss.package_key}</div>
+              <div className="mt-1 text-xs text-text3">{iss.entity}, {PKG_LABEL[iss.package_key] ?? iss.package_key}</div>
               <div className="mt-2 flex items-center gap-2">
                 <StatusBadge value={iss.severity.toLowerCase()} label={iss.severity} />
                 <span className="text-xs text-text2">AI confidence {iss.ai_confidence}%</span>
@@ -280,7 +280,7 @@ export function DataQuality() {
           <div className="space-y-4">
             <div className="rounded-card border border-border bg-card p-4">
               <div className="flex items-center gap-2">{sevIcon(anomaly.severity)}<span className="font-semibold text-text1">{anomaly.title}</span></div>
-              <div className="mt-1 text-xs text-text3">{anomaly.entity} · {PKG_LABEL[anomaly.package_key] ?? anomaly.package_key}</div>
+              <div className="mt-1 text-xs text-text3">{anomaly.entity}, {PKG_LABEL[anomaly.package_key] ?? anomaly.package_key}</div>
               <div className="mt-2 flex items-center gap-2"><StatusBadge value={anomaly.severity.toLowerCase()} label={anomaly.severity} /><span className="text-xs text-text2">AI confidence {anomaly.confidence}%</span></div>
             </div>
             {narrLoading ? (

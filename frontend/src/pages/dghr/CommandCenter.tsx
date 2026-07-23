@@ -129,7 +129,7 @@ export function CommandCenter() {
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: STATUS_COLORS[s.status] }} />
                         {s.label}
                       </span>
-                      <span className="nums text-text2"><b className="text-text1">{s.count}</b> · {s.pct}%</span>
+                      <span className="nums text-text2"><b className="text-text1">{s.count}</b>, {s.pct}%</span>
                     </div>
                   ))}
                 </div>

@@ -74,7 +74,7 @@ function InsightsCard() {
         <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-teal">
           <Radar size={14} /> Cross-entity insights
         </div>
-        {data && <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold text-text3">{data.source === "ai" ? "live model" : "offline"}{data.counted ? ` · ${data.counted} submissions` : ""}</span>}
+        {data && <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold text-text3">{data.source === "ai" ? "live model" : "offline"}{data.counted ? `, ${data.counted} submissions` : ""}</span>}
         <div className="ml-auto">
           <Button variant="secondary" size="sm" onClick={run} disabled={busy}>
             <Sparkles size={14} /> {busy ? "Scanning…" : data ? "Re-scan" : "Scan all entities"}
@@ -176,7 +176,7 @@ function TriageCard() {
                   <li key={item.id} className="flex flex-wrap items-start gap-2 py-2 first:pt-0 last:pb-0">
                     <span className={`mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${t.pill}`}>{t.label}</span>
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13px] font-semibold text-text1">{item.department} <span className="font-normal text-text3">· {item.entity} · {item.element_label} · {item.days_open}d</span></div>
+                      <div className="text-[13px] font-semibold text-text1">{item.department}<span className="font-normal text-text3">, {item.entity}, {item.element_label}, {item.days_open}d</span></div>
                       {item.action !== "wait" && item.draft && (
                         <div className="mt-1 rounded-md border border-border bg-card px-2 py-1.5 text-[11px] italic text-text2">“{item.draft}”</div>
                       )}

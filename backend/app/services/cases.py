@@ -126,7 +126,7 @@ def _subclar_summary(db: Session, clar, dept, ent, sla_days: float, escalate_aft
         "kind": "clarification",
         "entity_id": dept.entity_id,
         "entity": ent.name if ent else "",
-        "package_label": f"{dept.name} · {clar.element_label or clar.element_type}",
+        "package_label": f"{dept.name}, {clar.element_label or clar.element_type}",
         "priority": priority,
         "category": "Submission review",
         "status": _SUBCLAR_STATUS.get(clar.status, "open"),

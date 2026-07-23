@@ -1099,7 +1099,7 @@ function AnswerPanel({ saved, questions, repliesFor, openCount, answeredCount, c
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-warning/15 text-warning"><MessageSquareWarning size={18} /></span>
           <div>
             <div className="text-sm font-bold text-text1">{questions.length} question{questions.length > 1 ? "s" : ""} from DGHR</div>
-            <div className="text-xs text-text3">{openCount} to answer · {answeredCount} answered</div>
+            <div className="text-xs text-text3">{openCount} to answer, {answeredCount} answered</div>
           </div>
         </div>
         <div className="flex items-center gap-1.5" title="One dot per question">
@@ -1129,8 +1129,8 @@ function AnswerPanel({ saved, questions, repliesFor, openCount, answeredCount, c
 const URGENCY_RANK: Record<string, number> = { open: 0, due_soon: 1, overdue: 2, escalated: 3 };
 function UrgencyChip({ q }: { q: Clarification }) {
   const asked = q.created_at ? `Asked ${relativeTime(q.created_at)}` : "";
-  if (q.level === "escalated") return <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-2.5 py-1 text-[11px] font-semibold text-danger"><AlertCircle size={12} /> Escalated · {Math.round(q.days_over)}d over SLA</span>;
-  if (q.level === "overdue") return <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-2.5 py-1 text-[11px] font-semibold text-danger"><AlertCircle size={12} /> Overdue · {Math.round(q.days_over)}d</span>;
+  if (q.level === "escalated") return <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-2.5 py-1 text-[11px] font-semibold text-danger"><AlertCircle size={12} /> Escalated, {Math.round(q.days_over)}d over SLA</span>;
+  if (q.level === "overdue") return <span className="inline-flex items-center gap-1 rounded-full bg-danger/10 px-2.5 py-1 text-[11px] font-semibold text-danger"><AlertCircle size={12} /> Overdue, {Math.round(q.days_over)}d</span>;
   if (q.level === "due_soon") return <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2.5 py-1 text-[11px] font-semibold text-warning"><Clock size={12} /> Due soon</span>;
   return <span className="inline-flex items-center gap-1 rounded-full bg-inset px-2.5 py-1 text-[11px] font-medium text-text3" title={asked}><Clock size={12} /> {asked || "Within SLA"}</span>;
 }
@@ -1196,9 +1196,9 @@ function Thread({ q, replies }: { q: Clarification; replies: Clarification[] }) 
           <div key={mm.id} className={cn("rounded-lg p-3 text-sm", isDghr ? "bg-inset" : "ml-5 border border-primary/20 bg-primary/5")}>
             <div className="mb-1 flex items-center gap-1.5 text-[11px] text-text3">
               {isDghr ? <MessageSquareWarning size={12} className="text-warning" /> : <CornerDownRight size={12} className="text-primary" />}
-              <span className="font-semibold text-text2">{isDghr ? (mm.author || "DGHR") : "You"}</span>
-              <span>· {isDghr ? "DGHR" : "Entity"}</span>
-              {mm.created_at && <span>· {relativeTime(mm.created_at)}</span>}
+              <span className="font-semibold text-text2">{isDghr ? (mm.author || "DGHR") : "You"},</span>
+              <span>{isDghr ? "DGHR" : "Entity"}{mm.created_at ? "," : ""}</span>
+              {mm.created_at && <span>{relativeTime(mm.created_at)}</span>}
             </div>
             <div className="text-text1">{mm.message}</div>
           </div>

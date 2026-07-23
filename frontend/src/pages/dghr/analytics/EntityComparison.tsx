@@ -153,7 +153,7 @@ export function EntityComparison() {
             {/* Workforce level mix — the 4-part composition the ratios can't fully show */}
             <Reveal i={2}>
               <Panel title="Workforce level mix" live
-                subtitle="Managers · professionals · associate professionals · clerical support, as a share of each entity’s submitted workforce.">
+                subtitle="Managers, professionals, associate professionals, clerical support, as a share of each entity’s submitted workforce.">
                 <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
                   {data.entities.map((e) => (
                     <div key={e.id}>

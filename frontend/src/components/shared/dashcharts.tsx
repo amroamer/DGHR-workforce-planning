@@ -321,7 +321,7 @@ export function DemographicDonut({ buckets, height = 150, colors, animKey }: {
               ))}
             </Pie>
             {/* No Recharts <Tooltip>: on a small donut it lands dead-centre and collides with the
-                readout below. The centre + legend already show label · % · count on hover. */}
+                readout below. The centre + legend already show label, %, count on hover. */}
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-2 text-center">

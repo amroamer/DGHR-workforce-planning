@@ -146,7 +146,7 @@ export function Workforce() {
                 <>
                   <UploadCloud size={22} className="mx-auto mb-2 text-primary" />
                   <Button size="sm" onClick={() => fileRef.current?.click()}><UploadCloud size={14} /> Upload File</Button>
-                  <div className="mt-2 text-[11px] text-text3">Drag &amp; drop or browse · .xlsx, .xls, .csv · Max 25MB</div>
+                  <div className="mt-2 text-[11px] text-text3">Drag &amp; drop or browse, .xlsx, .xls, .csv, Max 25MB</div>
                 </>
               )}
             </div>

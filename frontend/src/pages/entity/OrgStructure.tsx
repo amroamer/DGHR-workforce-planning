@@ -221,7 +221,7 @@ export function OrgStructure() {
                 <div className="mb-2 text-sm font-semibold text-text1">Reviewer Comments ({data?.comments.length ?? 0})</div>
                 <div className="space-y-1.5">
                   {(data?.comments ?? []).map((c, i) => (
-                    <div key={i} className="rounded-lg bg-surface2 p-2.5 text-xs"><div className="font-semibold text-text1">{c.author_name} <span className="font-normal text-text3">· {c.author_role}</span></div><div className="mt-1 text-text2">{c.body}</div></div>
+                    <div key={i} className="rounded-lg bg-surface2 p-2.5 text-xs"><div className="font-semibold text-text1">{c.author_name}<span className="font-normal text-text3">, {c.author_role}</span></div><div className="mt-1 text-text2">{c.body}</div></div>
                   ))}
                 </div>
                 <div className="mt-2 flex items-center gap-1.5">
@@ -279,7 +279,7 @@ export function OrgStructure() {
           <div className="flex items-center gap-2 text-sm text-text1"><CheckCircle2 size={16} className="text-success" /> All checks passed. Your structure is fully mapped.</div>
         ) : (
           <>
-            <div className="flex items-center gap-2 text-sm font-medium text-warning"><AlertTriangle size={16} /> {(k?.unmapped ?? 0)} unmapped section{(k?.unmapped ?? 0) === 1 ? "" : "s"} · {(data?.alerts ?? []).length} hierarchy alert{(data?.alerts ?? []).length === 1 ? "" : "s"}</div>
+            <div className="flex items-center gap-2 text-sm font-medium text-warning"><AlertTriangle size={16} /> {(k?.unmapped ?? 0)} unmapped section{(k?.unmapped ?? 0) === 1 ? "" : "s"}, {(data?.alerts ?? []).length} hierarchy alert{(data?.alerts ?? []).length === 1 ? "" : "s"}</div>
             <div className="space-y-1.5">
               {(data?.alerts ?? []).map((a) => (
                 <button key={a.label} onClick={() => { set({ status: "unmapped" }); setValidateOpen(false); }} className="flex w-full items-center gap-2 rounded-lg border border-border p-2 text-left text-sm hover:bg-page">

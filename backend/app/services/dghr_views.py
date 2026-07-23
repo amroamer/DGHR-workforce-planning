@@ -69,14 +69,14 @@ def build_issue_detail(db: Session, issue_id: int) -> dict | None:
           .filter(m.WorkforceRecord.entity_id == issue.entity_id, m.WorkforceRecord.issues != [])
           .limit(6).all())
     for r in wf:
-        samples.append({"kind": "workforce", "label": f"{r.section} · {r.job_title}",
+        samples.append({"kind": "workforce", "label": f"{r.section}, {r.job_title}",
                         "detail": ", ".join(r.issues or []) or "flagged"})
     if not samples:
         org = (db.query(m.OrgSection)
                .filter(m.OrgSection.entity_id == issue.entity_id, m.OrgSection.status != "mapped")
                .limit(6).all())
         for s in org:
-            samples.append({"kind": "org", "label": f"{s.department} · {s.name}", "detail": s.status})
+            samples.append({"kind": "org", "label": f"{s.department}, {s.name}", "detail": s.status})
     return {
         "id": issue.id, "issue_type": issue.issue_type, "package_key": issue.package_key,
         "entity": entity.name if entity else "", "entity_id": issue.entity_id,

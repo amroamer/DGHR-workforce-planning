@@ -781,7 +781,7 @@ def submit_submission(sub_id: int, body: SubmitBody | None = None,
                        submission_id=sub.id, verb="submitted")
     workflow.notify(db, audience="dghr", kind="status",
                     title=f"{dept.name} submitted",
-                    body=f"Required {sz['required_fte']} FTE · gap {sz['gap']}", entity_id=dept.entity_id)
+                    body=f"Required {sz['required_fte']} FTE, gap {sz['gap']}", entity_id=dept.entity_id)
     workflow.bump_last_updated(db)
     db.commit()
     return _submission_payload(db, sub)
@@ -1730,7 +1730,7 @@ def clarify(sub_id: int, body: ClarifyBody, db: Session = Depends(get_db)) -> di
         element_label=body.element_label, message=body.message, author=actor.name,
         side="dghr", status="open"))
     sub.status = "in_clarification"
-    workflow.add_audit(db, label=f"{actor.name} asked about {dept.name} · {body.element_label or body.element_type}",
+    workflow.add_audit(db, label=f"{actor.name} asked about {dept.name}, {body.element_label or body.element_type}",
                        actor_name=actor.name, entity_id=dept.entity_id,
                        submission_id=sub_id, verb="clarified")
     workflow.notify(db, audience="entity", kind="clarification", entity_id=dept.entity_id,
