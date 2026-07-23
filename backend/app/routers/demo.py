@@ -57,10 +57,10 @@ def trigger_anomaly(db: Session = Depends(get_db)) -> dict:
                   detail="", package_key="workload_service", severity="High", confidence=93)
     db.add(a)
     db.add(m.Alert(severity="warning", title="New AI anomaly detected",
-                   body=f"Workload–headcount mismatch flagged at {e.name}.",
+                   body=f"Workload-headcount mismatch flagged at {e.name}.",
                    created_at=datetime.utcnow()))
     workflow.notify(db, audience="dghr", kind="ai_flag", entity_id=e.id,
-                    title="AI anomaly detected", body=f"Workload–headcount mismatch at {e.name} (93% confidence).")
+                    title="AI anomaly detected", body=f"Workload-headcount mismatch at {e.name} (93% confidence).")
     workflow.bump_last_updated(db)
     db.commit()
     return {"ok": True, "anomaly_id": a.id}

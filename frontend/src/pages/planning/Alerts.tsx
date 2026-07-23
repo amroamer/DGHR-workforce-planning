@@ -126,7 +126,7 @@ function TriageCard() {
   };
   const applyOne = async (item: TriageItem) => {
     setApplying(item.id);
-    try { await apply(item); qc.invalidateQueries(); toast.success(`${item.action === "escalate" ? "Escalated" : "Reminder sent"} — ${item.department}.`); }
+    try { await apply(item); qc.invalidateQueries(); toast.success(`${item.action === "escalate" ? "Escalated" : "Reminder sent"}: ${item.department}.`); }
     catch (e) { toast.error(e instanceof Error ? e.message : "Could not apply."); }
     finally { setApplying(null); }
   };
@@ -140,7 +140,7 @@ function TriageCard() {
         await apply(item); n++;
       }
       qc.invalidateQueries();
-      toast.success(n ? `Actioned ${n} item${n !== 1 ? "s" : ""} — ${data.counts.escalate} escalated, ${data.counts.remind} reminded.` : "Nothing to action.");
+      toast.success(n ? `Actioned ${n} item${n !== 1 ? "s" : ""}: ${data.counts.escalate} escalated, ${data.counts.remind} reminded.` : "Nothing to action.");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Could not apply all."); }
     finally { setApplying(null); }
   };
@@ -163,7 +163,7 @@ function TriageCard() {
           </Button>
         </div>
       </div>
-      {!data && <p className="mt-1.5 text-xs text-text3">Reads every open clarification, proposes a move per item — remind, escalate, or wait — and drafts the message. You confirm before anything is sent.</p>}
+      {!data && <p className="mt-1.5 text-xs text-text3">Reads every open clarification, proposes a move per item (remind, escalate, or wait) and drafts the message. You confirm before anything is sent.</p>}
       {data && (
         <div className="mt-2.5 space-y-3">
           <p className="text-xs text-text2">{data.summary}</p>
@@ -334,7 +334,7 @@ export function PlanningAlerts() {
                         <td className="px-3 py-3.5 text-right align-top"><GapPill gap={a.gap} /></td>
                         <td className="px-3 py-3.5 text-right align-top nums font-semibold text-text1">{a.variance_pct}%</td>
                         <td className="px-3 py-3.5 align-top"><StatusBadge value={Q_STATUS_VALUE[a.status]} label={Q_STATUS_LABEL[a.status]} /></td>
-                        <td className="px-5 py-3.5 align-top text-[13px] leading-relaxed text-text2">{a.recommended_action ?? "—"}</td>
+                        <td className="px-5 py-3.5 align-top text-[13px] leading-relaxed text-text2">{a.recommended_action ?? "-"}</td>
                       </tr>
                     ))}
                   </tbody>

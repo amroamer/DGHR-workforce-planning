@@ -45,7 +45,7 @@ export function TraceableValue({
           setOpen(true);
         }}
         aria-label={`View calculation for ${label}`}
-        title={`View calculation — ${label}`}
+        title={`View calculation: ${label}`}
         className={cn(
           "group inline-flex items-center gap-1 rounded outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
           className,

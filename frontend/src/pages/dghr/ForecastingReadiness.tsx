@@ -71,7 +71,7 @@ export function ForecastingReadiness() {
 
   return (
     <>
-      <PageHeader title="Forecasting Readiness" subtitle="Track which entities are ready for forecasting — and preview the planning insights this collection unlocks." />
+      <PageHeader title="Forecasting Readiness" subtitle="Track which entities are ready for forecasting, and preview the planning insights this collection unlocks." />
       <PageBody>
         {/* ───────── ZONE 1 — real ───────── */}
         <div className="grid grid-cols-5 gap-4">
@@ -101,9 +101,9 @@ export function ForecastingReadiness() {
                     <tr key={r.id} className="border-b border-border hover:bg-page">
                       <td className="px-3 py-2.5"><div className="font-medium text-text1">{r.name}</div><div className="text-[11px] text-text3">{r.code}</div></td>
                       <td className="px-3 py-2.5 w-32"><div className="mb-1 text-xs font-semibold text-text2">{r.completeness}%</div><ProgressBar value={r.completeness} /></td>
-                      <td className="px-3 py-2.5 text-center">{r.quality_score != null ? <span className="rounded-md bg-page px-2 py-0.5 text-xs font-semibold text-text1">{r.quality_score}</span> : <span className="text-text3">—</span>}</td>
+                      <td className="px-3 py-2.5 text-center">{r.quality_score != null ? <span className="rounded-md bg-page px-2 py-0.5 text-xs font-semibold text-text1">{r.quality_score}</span> : <span className="text-text3">-</span>}</td>
                       <td className="px-3 py-2.5"><StatusBadge value={r.forecasting_ready ? "approved" : "overdue"} label={r.forecasting_ready ? "Ready" : "Blocked"} /></td>
-                      <td className="px-3 py-2.5"><div className="flex flex-wrap gap-1">{r.blocking_reasons.length ? r.blocking_reasons.map((b) => <span key={b} className="rounded-full bg-danger-bg px-2 py-0.5 text-[10px] font-semibold text-danger">{b}</span>) : <span className="text-xs text-success">—</span>}</div></td>
+                      <td className="px-3 py-2.5"><div className="flex flex-wrap gap-1">{r.blocking_reasons.length ? r.blocking_reasons.map((b) => <span key={b} className="rounded-full bg-danger-bg px-2 py-0.5 text-[10px] font-semibold text-danger">{b}</span>) : <span className="text-xs text-success">-</span>}</div></td>
                       <td className="px-2"><button onClick={() => navigate(`/dghr/submissions?entity=${r.id}`)} className="text-xs font-semibold text-primary hover:underline">View gaps</button></td>
                     </tr>
                   ))}
@@ -132,7 +132,7 @@ export function ForecastingReadiness() {
 
         {/* ───────── ZONE 2 — Layer-B preview (Illustrative) ───────── */}
         <div className="mt-8 mb-3 flex items-center gap-3">
-          <h2 className="text-lg font-bold text-text1">What this unlocks — Workforce Insights</h2>
+          <h2 className="text-lg font-bold text-text1">What this unlocks: Workforce Insights</h2>
           <div className="h-px flex-1 bg-border" />
         </div>
 
@@ -193,7 +193,7 @@ export function ForecastingReadiness() {
           <p className="text-lg font-semibold text-text1">
             The proposed platform is <span className="text-teal">not a template automation tool</span>. It is a workforce planning factory that combines structured data collection, standardized methodology, wave-based delivery, guided diagnostics, AI-assisted analysis, calculation models, dashboards, and governance workflows.
           </p>
-          <p className="mt-2 text-sm text-text2">Preview of the platform's planning layer — powered by the data being collected today.</p>
+          <p className="mt-2 text-sm text-text2">Preview of the platform's planning layer, powered by the data being collected today.</p>
           <div className="mt-4 flex items-center gap-3">
             <Button onClick={() => navigate("/dghr/submissions")}>Open Tracker</Button>
             <Button variant="secondary" onClick={() => toast.message("Available in the full release")}>View readiness rules</Button>

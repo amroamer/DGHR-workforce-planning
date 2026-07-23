@@ -22,7 +22,7 @@ function fmtSize(b: number): string {
   return `${b} B`;
 }
 function fmtDate(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
@@ -109,7 +109,7 @@ export function PlanningDocuments() {
                           {d.missing && <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-warning-bg px-2 py-0.5 text-[11px] font-semibold text-warning"><AlertTriangle size={11} /> stored file missing</span>}
                         </td>
                         <td className="px-3 py-3.5"><span className="rounded-full bg-inset px-2 py-0.5 text-[11px] font-semibold text-text2">{d.category}</span></td>
-                        <td className="px-3 py-3.5 text-sm text-text2">{d.uploaded_by || "—"}</td>
+                        <td className="px-3 py-3.5 text-sm text-text2">{d.uploaded_by || "-"}</td>
                         <td className="px-3 py-3.5 text-sm text-text2">{fmtDate(d.uploaded_at)}</td>
                         <td className="px-3 py-3.5 text-right text-sm tabular-nums text-text2">{fmtSize(d.size_bytes)}</td>
                         <td className="px-5 py-3.5">

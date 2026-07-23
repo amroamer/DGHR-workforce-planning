@@ -13,7 +13,7 @@ from fastapi import Depends
 app = FastAPI(
     title="DGHR Workforce Planning Portal API",
     version="0.1.0",
-    description="Layer A — Data Collection & Orchestration Engine. See SPEC.md §8.",
+    description="Layer A: Data Collection & Orchestration Engine. See SPEC.md §8.",
 )
 
 app.add_middleware(

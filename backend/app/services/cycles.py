@@ -270,7 +270,7 @@ def sweep_reminders(db: Session) -> int:
             f"{milestone} day{'s' if milestone != 1 else ''} to the deadline"
     for eid in outstanding:
         workflow.notify(db, audience="entity", kind="reminder", entity_id=eid,
-                        title=f"Reminder — {label}",
+                        title=f"Reminder: {label}",
                         body=f"The {c.name} deadline is {c.deadline.isoformat()}. "
                              "Please complete your outstanding submissions.")
     db.add(m.CycleReminder(cycle_id=c.id, milestone=milestone,

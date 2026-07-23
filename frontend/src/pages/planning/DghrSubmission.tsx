@@ -174,7 +174,7 @@ function PreReviewCard({ subId, actor }: { subId: number; actor: number | null }
         await write(el); setApplied((s) => new Set(s).add(keyOf(el))); n++;
       }
       qc.invalidateQueries();
-      toast.success(n ? `Applied ${n} decision${n !== 1 ? "s" : ""} — ${plan.counts.query} queried, ${plan.counts.approve} approved.` : "Every element was already decided.");
+      toast.success(n ? `Applied ${n} decision${n !== 1 ? "s" : ""}: ${plan.counts.query} queried, ${plan.counts.approve} approved.` : "Every element was already decided.");
     } catch (e) { toast.error(e instanceof Error ? e.message : "Could not apply all."); }
     finally { setApplying(false); }
   };
@@ -202,7 +202,7 @@ function PreReviewCard({ subId, actor }: { subId: number; actor: number | null }
           </Button>
         </div>
       </div>
-      {!plan && <p className="mt-1.5 text-xs text-text3">Triages every element — approve or query — drafts the question for each query, and proposes the next move. You confirm; nothing is sent until you apply.</p>}
+      {!plan && <p className="mt-1.5 text-xs text-text3">Triages every element (approve or query), drafts the question for each query, and proposes the next move. You confirm; nothing is sent until you apply.</p>}
       {plan && (
         <div className="mt-2.5 space-y-3">
           {/* the proposed move */}
@@ -241,7 +241,7 @@ function PreReviewCard({ subId, actor }: { subId: number; actor: number | null }
               );
             })}
           </ul>
-          <p className="text-[10px] text-text3">Suggestions only — “Apply” records each decision under the selected reviewer, and a query also sends the drafted question to the entity.</p>
+          <p className="text-[10px] text-text3">Suggestions only: “Apply” records each decision under the selected reviewer, and a query also sends the drafted question to the entity.</p>
         </div>
       )}
     </Card>
@@ -388,8 +388,8 @@ export function PlanningDghrSubmission() {
           )}
           {data.status === "approved" && (
             <span className="ml-auto inline-flex items-center gap-1.5 text-xs text-text2">
-              <UserCheck size={14} className="text-text3" /> Recommended by <b className="text-text1">{data.recommended_by || "—"}</b>
-              <ShieldCheck size={14} className="text-success" /> Approved by <b className="text-text1">{data.decided_by || "—"}</b>
+              <UserCheck size={14} className="text-text3" /> Recommended by <b className="text-text1">{data.recommended_by || "-"}</b>
+              <ShieldCheck size={14} className="text-success" /> Approved by <b className="text-text1">{data.decided_by || "-"}</b>
             </span>
           )}
         </div>
@@ -624,7 +624,7 @@ export function PlanningDghrSubmission() {
               <Card>
                 <div className="mb-1 flex items-center justify-between">
                   <div className="text-sm font-semibold text-text1">Projected demand vs supply</div>
-                  <span className="text-[11px] text-text3">{data.projection.years ?? "—"} yrs</span>
+                  <span className="text-[11px] text-text3">{data.projection.years ?? "-"} yrs</span>
                 </div>
                 <div className="mb-3 text-xs text-text3">This department's trajectory if nothing changes.</div>
                 <ProjectedGapChart points={data.projection.points} height={196} />

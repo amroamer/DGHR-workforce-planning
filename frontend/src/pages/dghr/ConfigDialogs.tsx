@@ -87,7 +87,7 @@ export function PackageDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={pkg ? `Edit Package — ${pkg.name}` : "Add Data Package"}
+      title={pkg ? `Edit Package: ${pkg.name}` : "Add Data Package"}
       footer={
         <>
           {pkg && (

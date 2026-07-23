@@ -26,7 +26,7 @@ from app.services.calc_config import CalcConfig
 from app.services.formula import FormulaError, ROUNDING_LABEL, evaluate, fmt_num, render
 
 # What "source" means for an input, in the entity's own words rather than a table name.
-SRC_SUBMISSION = "Entity submission — planning stepper"
+SRC_SUBMISSION = "Entity submission (planning stepper)"
 SRC_TYPESET = "Typeset standard"
 SRC_METHOD = "Method default"
 SRC_ESTABLISHMENT = "Department establishment record"
@@ -126,9 +126,9 @@ def _parameter_rows(method, driver: m.SubmissionDriver, ts: m.Typeset | None,
         value = resolved[key]
         std = ts_defaults.get(key)
         if key not in own:
-            origin, source = "method_default", f"{SRC_METHOD} — {method.label} v{method.version}"
+            origin, source = "method_default", f"{SRC_METHOD} ({method.label} v{method.version})"
         elif std is not None and float(std) == float(value):
-            origin, source = "typeset_standard", (f"{SRC_TYPESET} — {ts.name} v{ts.version}"
+            origin, source = "typeset_standard", (f"{SRC_TYPESET} ({ts.name} v{ts.version})"
                                                   if ts else SRC_TYPESET)
         elif std is not None:
             origin, source = "entity_adjusted", (f"Adjusted by the entity from the "
@@ -251,7 +251,7 @@ def driver_trace(db: Session, driver_id: int, scenario: str = "base") -> dict | 
          "note": "The entity's own values, in the formula above."},
     ]
     if factor != 1.0:
-        steps.append({"label": f"Scenario — {scen.label if scen else scenario}",
+        steps.append({"label": f"Scenario: {scen.label if scen else scenario}",
                       "detail": f"{fmt_num(raw)} × {fmt_num(factor)} = {fmt_num(scaled)}",
                       "note": scen.note if scen else ""})
     if effective != scaled:
@@ -266,7 +266,7 @@ def driver_trace(db: Session, driver_id: int, scenario: str = "base") -> dict | 
     if fte_override is not None:
         steps.insert(0, {"label": "Direct FTE entry",
                          "detail": f"{fmt_num(float(fte_override))} FTE entered directly",
-                         "note": "The formula was bypassed for this driver — the entity stated the "
+                         "note": "The formula was bypassed for this driver, the entity stated the "
                                  "FTE rather than the workload behind it."})
 
     return {
@@ -375,7 +375,7 @@ def submission_trace(db: Session, submission_id: int, scenario: str = "base") ->
             "label": "Higher of the two",
             "detail": f"max({fmt_num(round(build_up, 2))}, {fmt_num(floor_total)}) = "
                       f"{fmt_num(max(build_up, floor_total))}",
-            "note": ("The statutory floor binds — the law requires more posts than the workload does."
+            "note": ("The statutory floor binds, the law requires more posts than the workload does."
                      if sz["floor_binds"] else
                      "The workload build-up exceeds the statutory minimum, so the floor does not bind."),
         })
@@ -386,7 +386,7 @@ def submission_trace(db: Session, submission_id: int, scenario: str = "base") ->
     return {
         "kind": "submission",
         "ref_id": sub.id,
-        "title": f"Required FTE — {dept.name if dept else ''}",
+        "title": f"Required FTE: {dept.name if dept else ''}",
         "context": {
             "department": dept.name if dept else "",
             "department_id": dept.id if dept else None,
@@ -415,8 +415,8 @@ def submission_trace(db: Session, submission_id: int, scenario: str = "base") ->
             "substituted": f"round(max({fmt_num(round(build_up, 2))}, {fmt_num(floor_total)})) "
                            f"= {fmt_num(required)}",
             "description": "A department needs the greater of what its workload implies and what the "
-                           "law requires — never the sum of the two, and never less than the floor.",
-            "source": "Workforce Sizing Methodology v1.0 §4.1 — Department total",
+                           "law requires, never the sum of the two, and never less than the floor.",
+            "source": "Workforce Sizing Methodology v1.0 §4.1: Department total",
             "rounding": rule,
             "rounding_note": ROUNDING_LABEL.get(rule, rule),
             "families": sorted({r["family"] for r in sz["drivers"]}),
@@ -437,7 +437,7 @@ def submission_trace(db: Session, submission_id: int, scenario: str = "base") ->
         "rounding": {
             "rule": rule,
             "label": ROUNDING_LABEL.get(rule, rule),
-            "note": "Applied once, at the department total — never per driver, which would compound "
+            "note": "Applied once, at the department total, never per driver, which would compound "
                     "rounding error across the build-up.",
             "raw": round(max(build_up, floor_total), 4),
             "raw_display": fmt_num(round(max(build_up, floor_total), 4)),
@@ -473,7 +473,7 @@ def entity_trace(db: Session, entity_id: int, scenario: str = "base") -> dict | 
     return {
         "kind": "entity",
         "ref_id": ent.id,
-        "title": f"Required FTE — {ent.name}",
+        "title": f"Required FTE: {ent.name}",
         "context": {"entity": ent.name, "entity_id": ent.id},
         "result": {"value": total, "display": f"{fmt_num(total)} FTE", "unit": "FTE"},
         "method": {
@@ -484,12 +484,12 @@ def entity_trace(db: Session, entity_id: int, scenario: str = "base") -> dict | 
                            f"= {fmt_num(total)}",
             "description": "The sum of every department that has actually submitted. Departments "
                            "that have not submitted are excluded rather than estimated.",
-            "source": "Workforce Sizing Methodology v1.0 §5 — Roll-up",
+            "source": "Workforce Sizing Methodology v1.0 §5: Roll-up",
         },
         "inputs": [{
             "label": r["name"], "value": r["required_fte"],
             "display": f"{fmt_num(r['required_fte'])} FTE", "unit": "FTE", "role": "department",
-            "source": f"Submission — {r['status'].replace('_', ' ')}",
+            "source": f"Submission: {r['status'].replace('_', ' ')}",
             "source_ref": {"kind": "submission", "id": r["submission_id"]},
             "traceable": r["submission_id"] is not None,
         } for r in counted],
@@ -498,7 +498,7 @@ def entity_trace(db: Session, entity_id: int, scenario: str = "base") -> dict | 
             {"label": "Departments counted",
              "detail": f"{len(counted)} of {len(data['departments'])}",
              "note": ("Every department has submitted." if not excluded else
-                      f"{len(excluded)} department(s) excluded — no submission received, so this "
+                      f"{len(excluded)} department(s) excluded, no submission received, so this "
                       f"total is partial.")},
             {"label": "Sum", "detail": f"{fmt_num(total)} FTE",
              "note": "Each department is itself traceable to its drivers."},
@@ -519,7 +519,7 @@ def government_trace(db: Session, basis: str = "received", scenario: str = "base
     return {
         "kind": "government",
         "ref_id": 0,
-        "title": "Required FTE — government-wide",
+        "title": "Required FTE: government-wide",
         "result": {"value": total, "display": f"{fmt_num(total)} FTE", "unit": "FTE"},
         "method": {
             "label": "Government position",
@@ -527,7 +527,7 @@ def government_trace(db: Session, basis: str = "received", scenario: str = "base
             "expression": "government required = Σ entity required (under the selected basis)",
             "substituted": f"Σ {len(rows)} entities = {fmt_num(total)}",
             "description": cov["statement"],
-            "source": "Workforce Sizing Methodology v1.0 §5 — Roll-up",
+            "source": "Workforce Sizing Methodology v1.0 §5: Roll-up",
         },
         "inputs": [{
             "label": e["name"], "value": e["required_fte"],

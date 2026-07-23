@@ -87,7 +87,7 @@ export function PlanningGovReports() {
             <Card className="mb-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold text-text1">Projected demand vs supply</div>
-                <span className="text-[11px] text-text3">{proj?.assumptions?.horizon_years ?? "—"} yrs</span>
+                <span className="text-[11px] text-text3">{proj?.assumptions?.horizon_years ?? "-"} yrs</span>
               </div>
               <div className="mb-4 text-xs text-text3">Government-wide trajectory if nothing changes.</div>
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -118,8 +118,8 @@ export function PlanningGovReports() {
                         <td className={`${TD} pl-5`}><div className="flex items-center gap-1.5 font-semibold text-text1">{e.name} <ArrowUpRight size={12} className="text-text3" /></div></td>
                         <td className={`${TD_NUM} font-semibold`}>{e.required_fte}</td>
                         <td className={TD_NUM}><GapPill gap={e.gap} /></td>
-                        <td className={`${TD_NUM} text-text2`}>{h?.headcount ?? "—"}</td>
-                        <td className={`${TD_NUM} pr-5 text-text2`}>{h ? `${h.emiratization_pct}%` : "—"}</td>
+                        <td className={`${TD_NUM} text-text2`}>{h?.headcount ?? "-"}</td>
+                        <td className={`${TD_NUM} pr-5 text-text2`}>{h ? `${h.emiratization_pct}%` : "-"}</td>
                       </tr>
                     );
                   })}</tbody>

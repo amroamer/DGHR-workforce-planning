@@ -52,7 +52,7 @@ def _half_up(x: float) -> int:
 def fmt_num(v: float) -> str:
     """Render a number the way the trace should read: no trailing .0, thousands separated."""
     if v is None:
-        return "—"
+        return "-"
     f = float(v)
     if f == int(f) and abs(f) < 1e15:
         return f"{int(f):,}"

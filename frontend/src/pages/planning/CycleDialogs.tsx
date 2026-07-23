@@ -231,7 +231,7 @@ export function ExtensionsDialog({
       title={cycle ? `Deadline extensions: ${cycle.name}` : "Deadline extensions"}
       footer={<Button variant="secondary" onClick={onClose}>Done</Button>}
     >
-      <div className="mb-3 text-xs text-text3">Cycle deadline: <b className="text-text2">{cycle?.deadline ?? "—"}</b>. An extension applies to one entity and keeps the window open for it past the deadline.</div>
+      <div className="mb-3 text-xs text-text3">Cycle deadline: <b className="text-text2">{cycle?.deadline ?? "-"}</b>. An extension applies to one entity and keeps the window open for it past the deadline.</div>
       {rows.length > 0 && (
         <div className="mb-4 divide-y divide-border rounded-lg border border-border">
           {rows.map((x) => (

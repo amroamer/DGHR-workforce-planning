@@ -52,7 +52,7 @@ export function ControlsBar({ ctrl, bases, scenarios, showScenario = true, showB
           ("Illustrative reference"), so the chips stay meaningful. */}
       <span className="ml-auto hidden items-center gap-1.5 self-end pb-2 text-[11px] font-medium text-text3 sm:inline-flex">
         <span className="h-2 w-2 rounded-full bg-success motion-safe:animate-pulse" />
-        Live — computed from submissions
+        Live, computed from submissions
       </span>
     </div>
   );

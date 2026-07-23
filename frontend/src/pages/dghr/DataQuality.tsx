@@ -65,7 +65,7 @@ export function DataQuality() {
     const next = it.status === "in_progress" ? "cleared" : "in_progress";
     await api.patchIssue(it.id, { status: next });
     qc.invalidateQueries({ queryKey: ["quality"] });
-    toast.success(next === "cleared" ? "Issue resolved and cleared from the queue." : "Issue marked as in progress — now investigating.");
+    toast.success(next === "cleared" ? "Issue resolved and cleared from the queue." : "Issue marked as in progress, now investigating.");
   };
 
   // MD-03 issue drawer + DQ-04 assign + DQ-05 send-back
@@ -83,7 +83,7 @@ export function DataQuality() {
     if (issueId == null) return;
     const r = await api.issueSendBack(issueId);
     qc.invalidateQueries();
-    toast.warning(`${r.ref} — sent back to ${iss?.entity ?? "entity"}.`);
+    toast.warning(`${r.ref}: sent back to ${iss?.entity ?? "entity"}.`);
     setIssueId(null);
   };
 
@@ -201,7 +201,7 @@ export function DataQuality() {
             <div className="space-y-2">
               {[
                 { icon: <ClipboardCheck size={16} />, title: "Review Issues", sub: "Open the full validation issues queue", onClick: () => { setShowAll(true); setPage(1); } },
-                { icon: <Users size={16} />, title: "Assign Analyst", sub: "Assign issues to data analysts", onClick: () => toast.message("Assign an analyst from any issue row — analyst assignment view coming to the queue.") },
+                { icon: <Users size={16} />, title: "Assign Analyst", sub: "Assign issues to data analysts", onClick: () => toast.message("Assign an analyst from any issue row. Analyst assignment view coming to the queue.") },
                 { icon: <Send size={16} />, title: "Send Back to Entity", sub: "Request entity to address issues", onClick: () => navigate("/dghr/clarifications") },
                 { icon: <CheckCheck size={16} />, title: "Mark as Cleared", sub: "Resolve all issues under investigation", onClick: async () => {
                   const inProg = (data?.issues.items ?? []).filter((i) => i.status === "in_progress");

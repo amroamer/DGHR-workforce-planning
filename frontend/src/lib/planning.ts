@@ -442,7 +442,13 @@ export interface CmpMetricValue { value: number | null; display: string; rank: n
 export interface CmpMetric {
   key: string; label: string; group: string; unit: string; format: string;
   higher_is_better: boolean | null; source: string; description: string;
-  benchmark: number | null; values: Record<string, CmpMetricValue>;
+  benchmark: number | null;
+  average: { value: number | null; display: string };
+  values: Record<string, CmpMetricValue>;
+}
+export interface CmpInsight {
+  title: string; entity_id: number; entity_code: string; entity_name: string;
+  logo_url: string | null; metric_key: string; metric_label: string; display: string;
 }
 export interface EntityComparisonPayload {
   basis: BasisKey; scenario: string;
@@ -452,6 +458,7 @@ export interface EntityComparisonPayload {
   entities: CmpEntity[];
   metrics: CmpMetric[];
   metric_groups: string[];
+  insights: CmpInsight[];
   category_labels: Record<string, string>;
 }
 

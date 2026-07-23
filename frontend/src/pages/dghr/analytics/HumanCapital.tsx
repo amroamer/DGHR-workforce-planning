@@ -124,7 +124,7 @@ export function HumanCapitalOverview() {
 
             {/* Gap by level */}
             <Reveal i={7}>
-              <Panel title="Demand–Supply Gap by Job Level" live
+              <Panel title="Demand-Supply Gap by Job Level" live
                 subtitle="Per-level trajectory: excess demand (vacancies) above zero, excess supply below.">
                 <GapDualLine series={data.gap_by_level} animKey={ctrl.animKey} />
               </Panel>

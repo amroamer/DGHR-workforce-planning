@@ -203,7 +203,7 @@ def smart_assist(body: SmartAssistBody) -> dict:
 def _extension_rows(db: Session, cycle_id: int) -> list[dict]:
     ent = {e.id: e for e in db.query(m.Entity).all()}
     return [{"id": x.id, "entity_id": x.entity_id,
-             "entity": ent[x.entity_id].name if x.entity_id in ent else "—",
+             "entity": ent[x.entity_id].name if x.entity_id in ent else "-",
              "code": ent[x.entity_id].code if x.entity_id in ent else "",
              "extended_deadline": x.extended_deadline.isoformat() if x.extended_deadline else None,
              "reason": x.reason, "granted_by": x.granted_by}
@@ -348,7 +348,7 @@ def open_cycle_endpoint(cycle_id: int, body: CycleAction | None = None,
         raise HTTPException(409, "An archived cycle can't be reopened.")
     other = cycles.open_cycle(db)
     if other and other.id != c.id:
-        raise HTTPException(409, f"'{other.name}' is already open. Close it before opening another — "
+        raise HTTPException(409, f"'{other.name}' is already open. Close it before opening another, "
                                  "only one cycle can be open at a time.")
     c.status = cycles.OPEN
     c.opened_at = datetime.utcnow()
@@ -358,12 +358,12 @@ def open_cycle_endpoint(cycle_id: int, body: CycleAction | None = None,
     scope_ids = cycles.entities_in_scope(db, c)
     if scope_ids is None:
         workflow.notify(db, audience="entity", kind="announcement", title="Collection cycle open",
-                        body=f"The {c.name} submission window is open — please submit your departments.")
+                        body=f"The {c.name} submission window is open, please submit your departments.")
     else:
         for eid in scope_ids:
             workflow.notify(db, audience="entity", kind="announcement", entity_id=eid,
                             title="Collection cycle open",
-                            body=f"The {c.name} submission window is open — please submit your departments.")
+                            body=f"The {c.name} submission window is open, please submit your departments.")
     workflow.add_audit(db, label=f"Cycle '{c.name}' opened by {body.actor_name}", actor_name=body.actor_name)
     workflow.bump_last_updated(db)
     db.commit()
@@ -481,7 +481,7 @@ def revoke_extension(cycle_id: int, ext_id: int, db: Session = Depends(get_db)) 
     db.delete(ext)
     workflow.add_audit(db, actor_name="DGHR Admin", entity_id=ext.entity_id,
                        label=f"Deadline extension revoked for {ent.name if ent else 'entity'}"
-                             f"{f' — {c.name}' if c else ''}")
+                             f"{f', {c.name}' if c else ''}")
     workflow.bump_last_updated(db)
     db.commit()
     return _cycle_detail(db, c)
@@ -496,7 +496,7 @@ def remind(db: Session = Depends(get_db)) -> dict:
                    if not (s := sizing.active_submission(db, d.id)) or s.status not in RECEIVED]
         if pending:
             workflow.notify(db, audience="entity", kind="reminder", entity_id=e.id,
-                            title="Reminder — submissions due",
+                            title="Reminder: submissions due",
                             body=f"{len(pending)} department(s) still to submit for the {'; '.join([p.name for p in pending[:3]])}{'…' if len(pending) > 3 else ''}.")
             reminded += 1
     workflow.bump_last_updated(db)
@@ -670,7 +670,7 @@ def save_submission(sub_id: int, body: SubmissionSave, db: Session = Depends(get
                                       name=d.name, unit=d.unit,
                                       family=d.family, volume=d.volume, forecast=d.forecast,
                                       params=d.params, position=pos,
-                                      source=(d.source or "").strip() or "Entity submission — planning stepper"))
+                                      source=(d.source or "").strip() or "Entity submission, planning stepper"))
     if body.mandates is not None:
         db.query(m.MandateFloor).filter(m.MandateFloor.submission_id == sub_id).delete()
         for md in body.mandates:
@@ -989,7 +989,7 @@ def override_driver(driver_id: int, body: OverrideBody, db: Session = Depends(ge
     dept = db.get(m.Department, sub.department_id) if sub else None
     workflow.add_audit(
         db,
-        label=f"'{d.name}' FTE overridden {calculated:g} → {body.value:g} — {body.reason.strip()}",
+        label=f"'{d.name}' FTE overridden {calculated:g} → {body.value:g}: {body.reason.strip()}",
         actor_name=body.actor_name.strip(),
         entity_id=dept.entity_id if dept else None,
     )
@@ -1003,7 +1003,7 @@ def revoke_override(override_id: int, db: Session = Depends(get_db)) -> dict:
     trace can still show that a human once intervened and that it was withdrawn."""
     ov = _require(db.get(m.CalcOverride, override_id), "Override")
     ov.active = False
-    workflow.add_audit(db, label=f"Override withdrawn — value reverted to the calculated figure",
+    workflow.add_audit(db, label=f"Override withdrawn, value reverted to the calculated figure",
                        actor_name=ov.actor_name or "DGHR Admin")
     db.commit()
     return _require(trace.build(db, ov.scope, ov.ref_id), "Calculation")
@@ -1251,8 +1251,8 @@ def gov_alerts(db: Session = Depends(get_db)) -> dict:
             by_flag[f] = by_flag.get(f, 0) + 1
         rows.append({
             "submission_id": s.id, "status": s.status,
-            "entity_id": ent.id if ent else None, "entity": ent.name if ent else "—",
-            "department_id": dept.id if dept else None, "department": dept.name if dept else "—",
+            "entity_id": ent.id if ent else None, "entity": ent.name if ent else "-",
+            "department_id": dept.id if dept else None, "department": dept.name if dept else "-",
             "flags": flags, "required_fte": sz["required_fte"], "current_fte": sz["current_fte"],
             "gap": sz["gap"],
             "variance_pct": round(abs(sz["gap"]) / sz["required_fte"] * 100, 1) if sz["required_fte"] else 0,
@@ -1300,8 +1300,8 @@ def clarification_queue(db: Session = Depends(get_db)) -> dict:
         counts[age["level"]] += 1
         rows.append({
             "id": c.id, "submission_id": c.submission_id,
-            "entity_id": ent.id if ent else None, "entity": ent.name if ent else "—",
-            "department_id": dept.id if dept else None, "department": dept.name if dept else "—",
+            "entity_id": ent.id if ent else None, "entity": ent.name if ent else "-",
+            "department_id": dept.id if dept else None, "department": dept.name if dept else "-",
             "element_label": c.element_label or c.element_type, "message": c.message,
             "author": c.author, **age,
         })
@@ -1442,10 +1442,10 @@ def export_entity_comparison(entity_ids: str = "", basis: str = "received",
     basis_label = next((b["label"] for b in data["bases"] if b["key"] == data["basis"]), data["basis"])
     w.writerow(["Entity comparison report", f"basis: {basis_label}"])
     w.writerow([])
-    w.writerow(["Metric", "Group", "Unit"] + [e["code"] for e in ents])
+    w.writerow(["Metric", "Group", "Unit", "Peer avg"] + [e["code"] for e in ents])
     for metric in data["metrics"]:
-        w.writerow([metric["label"], metric["group"], metric["unit"]]
-                   + [metric["values"].get(str(e["id"]), {}).get("display", "—") for e in ents])
+        w.writerow([metric["label"], metric["group"], metric["unit"], metric["average"]["display"]]
+                   + [metric["values"].get(str(e["id"]), {}).get("display", "-") for e in ents])
 
     return Response(
         content=buf.getvalue(), media_type="text/csv",
@@ -1501,7 +1501,7 @@ def _decide(db: Session, sub: m.DepartmentSubmission, *, new_status: str, note: 
                        actor_name=actor.name, entity_id=dept.entity_id,
                        submission_id=sub.id, verb=verb)
     workflow.notify(db, audience="entity", kind="status", entity_id=dept.entity_id,
-                    title=f"{dept.name} v{sub.version} — {verb} by DGHR", body=note or "")
+                    title=f"{dept.name} v{sub.version}: {verb} by DGHR", body=note or "")
     workflow.bump_last_updated(db)
     db.commit()
     return dept
@@ -1563,7 +1563,7 @@ def approve(sub_id: int, body: DecisionBody, db: Session = Depends(get_db)) -> d
     sub = _require(db.get(m.DepartmentSubmission, sub_id), "Submission")
     if sub.status != "recommended":
         raise HTTPException(409,
-            "An approval must follow a recommendation — Reviewer → Approver. "
+            "An approval must follow a recommendation: Reviewer → Approver. "
             f"This version is '{sub.status}'.")
     actor = _actor(db, body.actor_id, body.actor_name, "An approval")
     if not body.note.strip():
@@ -1615,7 +1615,7 @@ def decide_element(sub_id: int, body: ElementDecisionBody, db: Session = Depends
         raise HTTPException(422, f"Unknown element type '{body.element_type}'.")
     actor = _actor(db, body.actor_id, body.actor_name, "An element decision")
     if body.decision == "queried" and not body.note.strip():
-        raise HTTPException(422, "Say what you're querying — a query without a reason isn't reviewable.")
+        raise HTTPException(422, "Say what you're querying: a query without a reason isn't reviewable.")
 
     db.add(m.SubmissionElementDecision(
         submission_id=sub_id, element_type=body.element_type, element_key=body.element_key,
@@ -1646,7 +1646,7 @@ def revise_submission(sub_id: int, db: Session = Depends(get_db)) -> dict:
     if _win_dept:
         _require_open_window(db, _win_dept.entity_id)
     if versioning.is_editable(db, sub):
-        raise HTTPException(409, f"v{sub.version} is still a draft — edit it directly.")
+        raise HTTPException(409, f"v{sub.version} is still a draft, edit it directly.")
     try:
         new = versioning.revise(db, sub)
     except ValueError as e:
@@ -1677,7 +1677,7 @@ def submission_diff(sub_id: int, against: int | None = None, db: Session = Depen
         return revisions.diff(db, other, sub)
     out = revisions.diff_with_previous(db, sub)
     if out is None:
-        raise HTTPException(404, f"v{sub.version} is the first version — there is nothing to compare it against.")
+        raise HTTPException(404, f"v{sub.version} is the first version, there is nothing to compare it against.")
     return out
 
 
@@ -1734,7 +1734,7 @@ def clarify(sub_id: int, body: ClarifyBody, db: Session = Depends(get_db)) -> di
                        actor_name=actor.name, entity_id=dept.entity_id,
                        submission_id=sub_id, verb="clarified")
     workflow.notify(db, audience="entity", kind="clarification", entity_id=dept.entity_id,
-                    title=f"{dept.name} — clarification requested",
+                    title=f"{dept.name}: clarification requested",
                     body=f"{body.element_label or body.element_type}: {body.message}")
     workflow.bump_last_updated(db)
     db.commit()
@@ -1763,7 +1763,7 @@ def reply_clarification(sub_id: int, clar_id: int, body: ReplyBody, db: Session 
         side="entity", status="answered", parent_id=clar_id))
     parent.status = "answered"
     workflow.notify(db, audience="dghr", kind="clarification", entity_id=dept.entity_id,
-                    title=f"{dept.name} — clarification answered", body=body.message)
+                    title=f"{dept.name}: clarification answered", body=body.message)
     workflow.bump_last_updated(db)
     db.commit()
     return _submission_payload(db, sub)

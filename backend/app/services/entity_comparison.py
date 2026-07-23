@@ -6,7 +6,7 @@ its typeset's support/core category for the structure ratios, and the entity's s
 profile (via human_capital.filtered_human_capital at the selected basis) for the management, seniority,
 skill-mix and people ratios. Nothing is hardcoded — the metric labels/formats live here, and every
 number is computed. Structure ratios have 100% coverage (current_fte exists for every department, even
-entities that never submitted); workforce-mix ratios read null/"—" where a selected entity has no
+entities that never submitted); workforce-mix ratios read null/"-" where a selected entity has no
 submitted data at the chosen basis.
 """
 from __future__ import annotations
@@ -34,7 +34,7 @@ _METRICS: list[tuple] = [
     ("annual_cost_aed", "Annual workforce cost", "Scale", "AED", "aed_m", None,
      "Total annual workforce cost across submitted departments."),
     ("cost_per_fte", "Cost per FTE", "Scale", "AED", "aed", False,
-     "Annual workforce cost per FTE — sensitive to the seniority mix."),
+     "Annual workforce cost per FTE, sensitive to the seniority mix."),
     ("management_pct", "Management-to-total FTE", "Workforce mix", "%", "pct", None,
      "Managers as a share of total workforce FTE."),
     ("senior_mgmt_pct", "Senior-management ratio", "Workforce mix", "%", "pct", None,
@@ -57,7 +57,7 @@ def _fmt(value: float | None, fmt: str) -> str:
     """Server-side display string per metric format, so the table renders text and no number is
     formatted (or hardcoded) in JSX."""
     if value is None:
-        return "—"
+        return "-"
     if fmt == "ratio":
         return f"{value:.2f}×"
     if fmt == "pct":
@@ -170,6 +170,40 @@ def _ranks(pairs: list[tuple[str, float | None]]) -> dict[str, int]:
     return {eid: i + 1 for i, (eid, _v) in enumerate(ranked)}
 
 
+def _insights(entities: list[m.Entity], stats: dict) -> list[dict]:
+    """Auto-generated headline callouts over the SELECTED entities — the "so what" a bare grid can't
+    surface. Each names the leader on a metric where the selection actually differs."""
+    def leader(key: str, want_max: bool):
+        cand = [(e, stats[e.id].get(key)) for e in entities if stats[e.id].get(key) is not None]
+        if len(cand) < 2:
+            return None
+        # Skip when everyone is identical — there is no story to tell.
+        if len({round(v, 4) for _e, v in cand}) < 2:
+            return None
+        return (max if want_max else min)(cand, key=lambda x: x[1])
+
+    specs = [
+        ("management_pct", False, "Leanest management"),
+        ("management_pct", True, "Most top-heavy"),
+        ("support_to_core", True, "Most corporate-support-heavy"),
+        ("establishment_fte", True, "Largest establishment"),
+        ("emiratization_pct", True, "Highest Emiratization"),
+    ]
+    out: list[dict] = []
+    for key, want_max, title in specs:
+        r = leader(key, want_max)
+        if not r:
+            continue
+        e, v = r
+        spec = next(mm for mm in _METRICS if mm[0] == key)
+        out.append({"title": title, "entity_id": e.id, "entity_code": e.code, "entity_name": e.name,
+                    "logo_url": e.logo_url, "metric_key": key, "metric_label": spec[1],
+                    "display": _fmt(v, spec[4])})
+        if len(out) >= 4:
+            break
+    return out
+
+
 def entity_comparison(db: Session, entity_ids: list[int], *, basis: str = "received",
                       scenario: str = "base") -> dict:
     """Side-by-side comparison of up to 5 entities across the descriptive-ratio catalog."""
@@ -188,7 +222,17 @@ def entity_comparison(db: Session, entity_ids: list[int], *, basis: str = "recei
         if len(entities) >= MAX_ENTITIES:
             break
 
-    stats = {e.id: _entity_stats(db, e, basis=basis) for e in entities}
+    # Peer baseline: compute stats for EVERY entity so the "vs average" reference is stable — it must
+    # not shift as the user changes the selection. Selected entities read from the same map, so each
+    # entity is computed at most once.
+    all_entities = db.query(m.Entity).all()
+    all_stats = {e.id: _entity_stats(db, e, basis=basis) for e in all_entities}
+    stats = {e.id: all_stats[e.id] for e in entities}
+
+    def peer_avg(key: str) -> float | None:
+        vals = [all_stats[e.id].get(key) for e in all_entities]
+        vals = [v for v in vals if v is not None]
+        return round(sum(vals) / len(vals), 4) if vals else None
 
     entity_rows = []
     for e in entities:
@@ -215,10 +259,13 @@ def entity_comparison(db: Session, entity_ids: list[int], *, basis: str = "recei
     for key, label, group, unit, fmt, hib, desc in _METRICS:
         pairs = [(str(e.id), stats[e.id].get(key)) for e in entities]
         ranks = _ranks(pairs)
+        avg = peer_avg(key)
         metrics.append({
             "key": key, "label": label, "group": group, "unit": unit, "format": fmt,
             "higher_is_better": hib, "source": "live", "description": desc,
             "benchmark": _benchmark(db, key),
+            # Peer average across ALL entities — the reference the heatmap colours each cell against.
+            "average": {"value": avg, "display": _fmt(avg, fmt)},
             "values": {
                 eid: {"value": val, "display": _fmt(val, fmt), "rank": ranks.get(eid)}
                 for eid, val in pairs
@@ -234,5 +281,6 @@ def entity_comparison(db: Session, entity_ids: list[int], *, basis: str = "recei
         "entities": entity_rows,
         "metrics": metrics,
         "metric_groups": _METRIC_GROUPS,
+        "insights": _insights(entities, stats),
         "category_labels": _CATEGORY_LABEL,
     }

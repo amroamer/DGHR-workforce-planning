@@ -193,7 +193,7 @@ export function Submissions() {
                           </span>
                         ) : <span className="text-text3">Unassigned</span>}
                       </td>
-                      <td className={`px-3 py-3.5 ${r.overdue ? "font-semibold text-danger" : "text-text2"}`}>{r.due_date ?? "—"}</td>
+                      <td className={`px-3 py-3.5 ${r.overdue ? "font-semibold text-danger" : "text-text2"}`}>{r.due_date ?? "-"}</td>
                       <td className="px-3 py-3.5"><StatusBadge value={r.overdue && r.status !== "submitted" ? "overdue" : r.status} label={r.overdue && r.status !== "submitted" ? "Overdue" : r.status_label} /></td>
                       <td className="px-2">
                         <RowMenu label={`Actions for ${r.name}`} items={[

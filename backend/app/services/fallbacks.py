@@ -11,12 +11,12 @@ def driver_summary(entity_name: str, drivers: list[dict], evidence_coverage: int
     return (
         f"{entity_name}'s demand outlook is shaped by three converging forces. First, {high_txt} "
         f"point to a skill shift rather than pure headcount growth: routine processing capacity should "
-        f"decline over the next 0–2 years while demand for data, integration, and oversight roles rises. "
+        f"decline over the next 0-2 years while demand for data, integration, and oversight roles rises. "
         f"Second, regulatory and population drivers create genuine new workload that automation is unlikely "
         f"to absorb alone, concentrated in customer-facing and compliance functions. Third, productivity "
         f"initiatives remain early and under-evidenced. Evidence coverage stands at {evidence_coverage}% with "
         f"{gaps} outstanding gaps, most critically around the productivity-improvement assumptions for the "
-        f"1–5 year horizon and the headcount impact of regulatory change. Recommended next steps: "
+        f"1-5 year horizon and the headcount impact of regulatory change. Recommended next steps: "
         f"(1) attach quantified benefit cases for each high-impact automation driver before submission, and "
         f"(2) reconcile the population-growth projection against actual service volumes so demand is "
         f"workload-driven, not opinion-driven. On balance, the section-level picture suggests targeted "
@@ -67,25 +67,25 @@ def report_narrative(facts: dict) -> str:
     coverage = (
         f"{name} is built from {received} of {total} department submissions"
         + (f"; {outstanding} still to come, so read the totals as a floor, not the final position."
-           if outstanding > 0 else " — full coverage, so the totals below are the complete position.")
+           if outstanding > 0 else ", full coverage, so the totals below are the complete position.")
     )
     parts.append(coverage)
 
     if gap < 0:
         headline = (
-            f"The work as evidenced needs {facts['required_fte']} FTE against {facts['current_fte']} available "
-            f"— a shortfall of {abs(gap)} FTE. Before that becomes a hiring case, the driver volumes behind it "
+            f"The work as evidenced needs {facts['required_fte']} FTE against {facts['current_fte']} available"
+            f", a shortfall of {abs(gap)} FTE. Before that becomes a hiring case, the driver volumes behind it "
             f"deserve one more challenge: a gap is only as defensible as the workload evidence under it."
         )
     elif gap > 0:
         headline = (
             f"Available capacity stands at {facts['current_fte']} FTE against a sized requirement of "
-            f"{facts['required_fte']} — a surplus of {gap} FTE. That is redeployment capacity, not slack: "
+            f"{facts['required_fte']}, a surplus of {gap} FTE. That is redeployment capacity, not slack: "
             f"the question to put to each surplus area is where that time should move, not whether it exists."
         )
     else:
         headline = (
-            f"Available capacity of {facts['current_fte']} FTE currently matches the sized requirement — "
+            f"Available capacity of {facts['current_fte']} FTE currently matches the sized requirement, "
             f"balance today, which makes the forward trajectory the number to watch."
         )
     parts.append(headline)
@@ -94,7 +94,7 @@ def report_narrative(facts: dict) -> str:
     if short and surplus:
         parts.append(
             f"Pressure concentrates in {_and_list([s['name'] for s in short])}, while "
-            f"{_and_list([s['name'] for s in surplus])} carry surplus — a redeployment conversation "
+            f"{_and_list([s['name'] for s in surplus])} carry surplus, a redeployment conversation "
             f"worth having before any net growth is approved."
         )
     elif short:
@@ -113,7 +113,7 @@ def report_narrative(facts: dict) -> str:
         trend = "widens to" if end_gap < min(gap, 0) else "moves to"
         parts.append(
             f"On each department's own forecasts, the gap {trend} {end_gap:+g} FTE by {facts['end_year']} "
-            f"({facts['horizon_years']}-year rule-based projection, not a black-box forecast) — "
+            f"({facts['horizon_years']}-year rule-based projection, not a black-box forecast), "
             f"so the decisions above are best taken against that trajectory, not this year's snapshot."
         )
 
@@ -139,7 +139,7 @@ def ask_data(question: str, pack: dict) -> str:
 
     if any(w in q for w in ("surplus", "redeploy", "over-resourced", "overstaffed", "spare")):
         if not surplus:
-            return f"No counted {word} currently shows a surplus — every one is at or below its sized requirement."
+            return f"No counted {word} currently shows a surplus, every one is at or below its sized requirement."
         return (f"{len(surplus)} {word}{'s' if len(surplus) != 1 else ''} carr{'y' if len(surplus) != 1 else 'ies'} "
                 f"a surplus, led by {_units(surplus)}. That is redeployment capacity to weigh before approving net growth elsewhere.")
     if "emirat" in q:
@@ -153,8 +153,8 @@ def ask_data(question: str, pack: dict) -> str:
         total, recv = cov["departments_total"] or 0, cov["departments_received"] or 0
         out = total - recv
         base = f"{recv} of {total} departments have been received ({cov['departments_approved']} approved)"
-        return (f"{base}, {out} still outstanding — read the totals as a floor until coverage is complete."
-                if out > 0 else f"{base} — full coverage, so the totals are the complete position.")
+        return (f"{base}, {out} still outstanding; read the totals as a floor until coverage is complete."
+                if out > 0 else f"{base}, full coverage, so the totals are the complete position.")
     if pack.get("open_clarifications") is not None and any(w in q for w in ("clarification", "query", "queried", "awaiting", "pending")):
         n = pack["open_clarifications"]
         return (f"There {'is' if n == 1 else 'are'} {n} open DGHR clarification{'s' if n != 1 else ''} outstanding government-wide."
@@ -163,7 +163,7 @@ def ask_data(question: str, pack: dict) -> str:
         p = pack["projection"]
         if not p:
             return "There isn't enough submitted forecast data to project a trajectory yet."
-        return (f"On each department's own forecasts, the gap moves to {p['end_gap']:+g} FTE by {p['end_year']} — "
+        return (f"On each department's own forecasts, the gap moves to {p['end_gap']:+g} FTE by {p['end_year']}, "
                 f"a {p['horizon_years']}-year rule-based projection, not a black-box forecast.")
     if pack.get("by_typeset") and any(w in q for w in ("typeset", "type of work", "family", "kind of")):
         bt = sorted(pack["by_typeset"], key=lambda x: x["gap"])[:3]
@@ -173,7 +173,7 @@ def ask_data(question: str, pack: dict) -> str:
         return (f"{scope_txt}, available capacity of {t['available_fte']} FTE "
                 f"{'matches' if t['gap'] == 0 else 'exceeds'} the sized requirement of {t['required_fte']} FTE "
                 f"(gap {t['gap']:+g}). Ask about a specific {word}, Emiratization, cost, or the projection for more.")
-    return (f"{scope_txt}, the work needs {t['required_fte']} FTE against {t['available_fte']} available — "
+    return (f"{scope_txt}, the work needs {t['required_fte']} FTE against {t['available_fte']} available, "
             f"a shortfall of {abs(t['gap']):g} FTE, concentrated in {_units(short)}.")
 
 
@@ -186,7 +186,7 @@ def review_brief(facts: dict) -> dict:
     # ── summary ──
     s: list[str] = [
         f"{facts['department']} ({facts['entity']}, {facts['typeset'] or 'no typeset'}) v{facts['version']} "
-        f"sizes to {facts['required_fte']} FTE against {facts['available_fte']} available — "
+        f"sizes to {facts['required_fte']} FTE against {facts['available_fte']} available, "
         f"{'a shortfall of ' + f'{abs(gap):g}' if gap < 0 else 'a surplus of ' + f'{gap:g}' if gap > 0 else 'in balance'}."
     ]
     if facts.get("peer_median_required") is not None:
@@ -196,7 +196,7 @@ def review_brief(facts: dict) -> dict:
                  f"(median required {facts['peer_median_required']:g} FTE), this sits {side} the median.")
     ch = facts.get("changes_from_previous")
     s.append(f"v{ch['to_version']} changes {ch['count']} element value{'s' if ch['count'] != 1 else ''} from v{ch['from_version']}."
-             if ch else "This is the first version — nothing earlier to compare against.")
+             if ch else "This is the first version, nothing earlier to compare against.")
     s.append(f"Review stands at {rv['approved']} of {rv['total']} elements approved, "
              f"{rv['queried']} queried, {rv['undecided']} still to look at.")
 
@@ -210,24 +210,24 @@ def review_brief(facts: dict) -> dict:
     unforecast = [d["name"] for d in facts["drivers"] if not d["forecast_stated"]]
     if unforecast:
         risks.append({"title": "Forecast not stated", "detail":
-                      f"{_and_list(unforecast[:3])} carr{'y' if len(unforecast) != 1 else 'ies'} no forward forecast — flat is an assumption, not a statement."})
+                      f"{_and_list(unforecast[:3])} carr{'y' if len(unforecast) != 1 else 'ies'} no forward forecast: flat is an assumption, not a statement."})
     for o in facts.get("mpu_outliers") or []:
         risks.append({"title": f"{o['driver']}: handling time well above peers",
                       "detail": f"{o['minutes_per_unit']:g} minutes per {o['unit'].rstrip('/yr')} vs a peer median of "
-                                f"{o['peer_median']:g} — worth asking how the time is measured before the FTE stands."})
+                                f"{o['peer_median']:g}, worth asking how the time is measured before the FTE stands."})
     for c in facts.get("open_clarifications") or []:
         if c["level"] in ("overdue", "escalated"):
             risks.append({"title": f"Clarification on {c['element']} unanswered {c['days_open']}d",
-                          "detail": "Past SLA — chase or escalate before this version moves."})
+                          "detail": "Past SLA: chase or escalate before this version moves."})
 
     # ── what to check first: most material FTE first, then whatever is already contested ──
     checks: list[str] = []
     top = sorted(facts["drivers"], key=lambda d: -(d["fte"] or 0))[:2]
     for i, t in enumerate(top):
         rank = "the largest single claim" if i == 0 else "the second-largest claim"
-        checks.append(f"{t['name']}: {t['volume']:,.0f} {t['unit']} → {t['fte']} FTE — {rank}; verify volume source and handling time.")
+        checks.append(f"{t['name']}: {t['volume']:,.0f} {t['unit']} → {t['fte']} FTE, {rank}; verify volume source and handling time.")
     for q in (facts.get("queried_elements") or [])[:2]:
-        checks.append(f"{q}: already queried — confirm the answer closes the question before approving.")
+        checks.append(f"{q}: already queried, confirm the answer closes the question before approving.")
     if facts.get("mandates") and len(checks) < 4:
         f0 = facts["mandates"][0]
         checks.append(f"Statutory floor {f0['positions']} × {f0['role']}: confirm the cited legal basis fixes a minimum on duty.")
@@ -255,7 +255,7 @@ def draft_clarification(direction: str, element_type: str, element_label: str,
             basis = f["legal_basis"] or "[cite the law/article]"
             return (
                 f"The floor of {f['positions']} × {f['role']} is fixed by {basis}. It is a minimum-on-duty "
-                f"requirement, not a target — the roster evidence showing the minimum is attached."
+                f"requirement, not a target; the roster evidence showing the minimum is attached."
             )
         head = f"Regarding “{question.strip()}”: " if question.strip() else ""
         return (
@@ -282,13 +282,13 @@ def draft_clarification(direction: str, element_type: str, element_label: str,
         )
     if element_type == "notes":
         return ("On the entity note: which of the points in it change the sized requirement, and by how much? "
-                "Please quantify anything intended to affect the figure — a note DGHR can't size against is context, not evidence.")
+                "Please quantify anything intended to affect the figure, a note DGHR can't size against is context, not evidence.")
     if element_type == "profile":
         return ("Please confirm the workforce profile reconciles with the establishment: headcount, FTE and "
                 "Emiratization by job level, and the basis for any level where FTE is well below headcount.")
     if element_type == "supply":
         return ("Please confirm each secondment/adjustment entry: its dates, whether it counts in supply, and "
-                "the receiving department — the available-FTE figure moves with each of these.")
+                "the receiving department, the available-FTE figure moves with each of these.")
     flags = "; ".join(ctx.get("flags") or [])
     flagged = f" The engine flagged: {flags}." if flags else ""
     return (
@@ -315,7 +315,7 @@ def chase_message(action: str, *, department: str, entity: str, element: str,
     el = element or "a submitted figure"
     if action == "escalate":
         return (
-            f"Escalating: {department} ({entity}) — the clarification on {el} has gone unanswered for "
+            f"Escalating: {department} ({entity}), the clarification on {el} has gone unanswered for "
             f"{days_open:g} days, beyond the {escalate_after:g}-day threshold. Recommend a senior "
             f"follow-up with the entity champion before this version ages further."
         )
@@ -345,7 +345,7 @@ def quality_insights(sig: dict) -> list[dict]:
             "title": "Unusual workload-growth requests",
             "detail": (f"{len(growth)} department{'s' if len(growth) != 1 else ''} across "
                        f"{len(ents)} entit{'ies' if len(ents) != 1 else 'y'} forecast workload growth "
-                       f"above 20% — led by " + _and_list([f"{d} (+{p}%)" for d, _, p in top]) +
+                       f"above 20%, led by " + _and_list([f"{d} (+{p}%)" for d, _, p in top]) +
                        ". Challenge the volume basis before these enter the demand case."),
             "entities": ents[:6], "count": len(growth),
         })
@@ -355,7 +355,7 @@ def quality_insights(sig: dict) -> list[dict]:
         out.append({
             "kind": "naming", "severity": "medium",
             "title": "Inconsistent driver naming across entities",
-            "detail": ("The same workload driver is recorded under different names — " +
+            "detail": ("The same workload driver is recorded under different names: " +
                        _and_list([f"“{x}”" for x in grp[:4]]) + f" appear across {len(el)} entities. "
                        "Standardise the taxonomy so cross-entity demand stays comparable."),
             "entities": el[:6], "count": len(grp),
@@ -366,7 +366,7 @@ def quality_insights(sig: dict) -> list[dict]:
         out.append({
             "kind": "shared", "severity": "medium",
             "title": f"{ts}: shortfall across multiple entities",
-            "detail": (f"{len(el)} entities report a shortfall in {ts} — a candidate for a shared or "
+            "detail": (f"{len(el)} entities report a shortfall in {ts}, a candidate for a shared or "
                        f"cross-entity capability rather than {len(el)} separate hiring cases."),
             "entities": el[:6], "count": len(el),
         })
@@ -380,7 +380,7 @@ def quality_insights(sig: dict) -> list[dict]:
             "title": f"“{flag}” is the most common flag",
             "detail": (f"{cnt} submission{'s' if cnt != 1 else ''} across {len(el)} entit"
                        f"{'ies' if len(el) != 1 else 'y'} carry the “{flag}” flag. Batch-review these "
-                       "together — a shared root cause is likely."),
+                       "together, a shared root cause is likely."),
             "entities": el[:6], "count": cnt,
         })
 

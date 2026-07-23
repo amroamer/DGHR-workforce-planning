@@ -53,7 +53,7 @@ export function OpenClarificationModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Open Clarification${entityName ? ` — ${entityName}` : ""}`}
+    <Modal open={open} onClose={onClose} title={`Open Clarification${entityName ? `: ${entityName}` : ""}`}
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
         <Button onClick={submit} disabled={busy || !summary.trim()}>{busy ? "Sending…" : "Send Clarification"}</Button>
@@ -88,7 +88,7 @@ export function ReturnSubmissionModal({
     try {
       const r = await api.returnSubmission({ entity_id: entityId, package_key: pkg, reason });
       await qc.invalidateQueries();
-      toast.warning(`${r.ref} — submission returned${entityName ? ` to ${entityName}` : ""}.`);
+      toast.warning(`${r.ref}: submission returned${entityName ? ` to ${entityName}` : ""}.`);
       onClose();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to return submission.");
@@ -96,7 +96,7 @@ export function ReturnSubmissionModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={`Return Submission${entityName ? ` — ${entityName}` : ""}`}
+    <Modal open={open} onClose={onClose} title={`Return Submission${entityName ? `: ${entityName}` : ""}`}
       footer={<>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
         <Button variant="danger" onClick={submit} disabled={busy || !reason.trim()}>{busy ? "Returning…" : "Return for Correction"}</Button>

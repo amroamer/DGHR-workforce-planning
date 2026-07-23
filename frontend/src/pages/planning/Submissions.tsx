@@ -79,9 +79,9 @@ export function PlanningSubmissions() {
                               <span className={`nums mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${r.days_waiting > 10 ? "bg-danger-bg text-danger" : r.days_waiting > 5 ? "bg-warning-bg text-warning" : "bg-inset text-text3"}`}>{r.days_waiting}d waiting</span>
                             )}
                           </div>
-                        ) : <span className="text-xs text-text3">—</span>}
+                        ) : <span className="text-xs text-text3">-</span>}
                       </td>
-                      <td className="px-5 py-3.5">{r.open_clarifications > 0 ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-warning"><MessageSquareWarning size={14} /> {r.open_clarifications} open</span> : <span className="text-xs text-text3">—</span>}</td>
+                      <td className="px-5 py-3.5">{r.open_clarifications > 0 ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-warning"><MessageSquareWarning size={14} /> {r.open_clarifications} open</span> : <span className="text-xs text-text3">-</span>}</td>
                     </tr>
                   ))}
                 </tbody>

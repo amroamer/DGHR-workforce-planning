@@ -33,7 +33,7 @@ export function SubmitGuardModal({
           <div className="flex items-center gap-2 text-sm font-medium text-warning">
             <AlertTriangle size={16} /> {issues.length} open item{issues.length > 1 ? "s" : ""} before submission
           </div>
-          <p className="text-sm text-text2">You can still submit — DGHR will review these during validation.</p>
+          <p className="text-sm text-text2">You can still submit. DGHR will review these during validation.</p>
           <ul className="list-disc space-y-1 pl-5 text-sm text-text1">
             {issues.map((i, idx) => <li key={idx}>{i}</li>)}
           </ul>

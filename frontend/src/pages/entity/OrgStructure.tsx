@@ -179,10 +179,10 @@ export function OrgStructure() {
                         <td className={cn(TD, "text-text3")}>{r.sector.replace(" Sector", "")}</td>
                         <td className={cn(TD, "text-text3")}>{r.department.replace(" Department", "")}</td>
                         <td className={cn(TD, "font-medium")}>{r.name}</td>
-                        <td className={TD}>{r.owner_name ? <span className="flex items-center gap-1.5"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-navy-900 text-[9px] font-bold text-white">{r.owner_initials}</span>{r.owner_name}</span> : <span className="text-danger">—</span>}</td>
-                        <td className={cn(TD, "text-text2")}>{r.hr_focal_point ?? <span className="text-danger">—</span>}</td>
+                        <td className={TD}>{r.owner_name ? <span className="flex items-center gap-1.5"><span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-navy-900 text-[9px] font-bold text-white">{r.owner_initials}</span>{r.owner_name}</span> : <span className="text-danger">-</span>}</td>
+                        <td className={cn(TD, "text-text2")}>{r.hr_focal_point ?? <span className="text-danger">-</span>}</td>
                         <td className={cn(TD, "text-text2")}>{r.in_scope ? "Yes" : "No"}</td>
-                        <td className={cn(TD, "nums text-text2")}>{r.employee_count ?? "—"}</td>
+                        <td className={cn(TD, "nums text-text2")}>{r.employee_count ?? "-"}</td>
                         <td className={TD}><StatusBadge value={r.status} /></td>
                         <td className="px-2"><RowMenu label={`Actions for ${r.name}`} items={[
                           { label: "Mark not in scope", icon: <EyeOff size={15} />, onClick: () => markNotInScope(r.id) },
@@ -276,7 +276,7 @@ export function OrgStructure() {
         footer={<Button onClick={() => setValidateOpen(false)}>Done</Button>}
       >
         {(k?.unmapped ?? 0) === 0 && (data?.alerts ?? []).length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-text1"><CheckCircle2 size={16} className="text-success" /> All checks passed — your structure is fully mapped.</div>
+          <div className="flex items-center gap-2 text-sm text-text1"><CheckCircle2 size={16} className="text-success" /> All checks passed. Your structure is fully mapped.</div>
         ) : (
           <>
             <div className="flex items-center gap-2 text-sm font-medium text-warning"><AlertTriangle size={16} /> {(k?.unmapped ?? 0)} unmapped section{(k?.unmapped ?? 0) === 1 ? "" : "s"} · {(data?.alerts ?? []).length} hierarchy alert{(data?.alerts ?? []).length === 1 ? "" : "s"}</div>

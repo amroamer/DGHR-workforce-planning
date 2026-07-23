@@ -22,6 +22,15 @@ def _live_enabled() -> bool:
     return bool(settings.anthropic_api_key) and settings.demo_ai_mode != "fallback"
 
 
+def _sanitize(text: str | None) -> str | None:
+    """Strip em/en dashes from model output. Belt-and-suspenders behind the system-prompt rule: the
+    model is told not to use them, and this guarantees none survive even when it disobeys. Chunk-safe,
+    so it can run per streamed delta as well as on a full response."""
+    if not text:
+        return text
+    return text.replace("—", "-").replace("–", "-")  # dash-ok: em dash, en dash -> hyphen
+
+
 def _call_anthropic(prompt: str, system: str, max_tokens: int = 400, timeout: float = 10.0) -> str | None:
     """Best-effort live call; returns None on any error/timeout so callers fall back."""
     try:
@@ -38,7 +47,7 @@ def _call_anthropic(prompt: str, system: str, max_tokens: int = 400, timeout: fl
             system=system,
             messages=[{"role": "user", "content": prompt}],
         )
-        return "".join(block.text for block in msg.content if getattr(block, "type", "") == "text").strip()
+        return _sanitize("".join(block.text for block in msg.content if getattr(block, "type", "") == "text").strip())
     except Exception:  # noqa: BLE001
         return None
 
@@ -46,7 +55,9 @@ def _call_anthropic(prompt: str, system: str, max_tokens: int = 400, timeout: fl
 _ANALYST_SYSTEM = (
     "You are a workforce-planning analyst for Dubai Government HR. Be specific, cross-entity where "
     "relevant, evidence-seeking, and work-first-not-headcount-first. Challenge respectfully. "
-    "Never sound like a generic chatbot."
+    "Never sound like a generic chatbot. "
+    "Write in plain ASCII punctuation: never use em dashes or en dashes; use commas, colons, "
+    "semicolons, or parentheses instead."
 )
 
 
@@ -171,7 +182,7 @@ def report_narrative(db: Session, scope: str, entity_id: int | None = None, scen
             "Write a 140-180 word executive summary of this workforce report. Cover: submission coverage, "
             "required vs available FTE and what the gap means, where shortage/surplus concentrates, the "
             "workforce profile, the projected trajectory, and one or two recommended next steps. Use ONLY "
-            "the figures given — never invent a number. Plain prose, no headings or bullets. FACTS: "
+            "the figures given, never invent a number. Plain prose, no headings or bullets. FACTS: "
             + json.dumps(facts)
         )
         live_text = _call_anthropic(prompt, _ANALYST_SYSTEM, max_tokens=500)
@@ -329,7 +340,7 @@ def ask_data_stream(pack: dict | None, question: str, history: list[dict] | None
                 for text in stream.text_stream:
                     if text:
                         streamed = True
-                        yield json.dumps({"delta": text}) + "\n"
+                        yield json.dumps({"delta": _sanitize(text)}) + "\n"
             if streamed:
                 yield json.dumps({"done": True, "source": "ai"}) + "\n"
                 return
@@ -419,8 +430,8 @@ def review_brief(db: Session, sub_id: int) -> dict:
             'JSON: {"summary":str (60-90 words: what the submission claims, how it compares to peers and its '
             'prior version, and where review stands),"risks":[{"title":str,"detail":str}] (max 4; each a '
             'specific, evidence-seeking concern grounded in the facts, detail one sentence),"checks":[str] '
-            "(2-3 things to verify first, most material first, one sentence each). Use ONLY the figures given "
-            "— never invent one. FACTS: " + json.dumps(facts)
+            "(2-3 things to verify first, most material first, one sentence each). Use ONLY the figures given"
+            ", never invent one. FACTS: " + json.dumps(facts)
         )
         # The brief is the one heavyweight generation — a full JSON deliverable, not a paragraph.
         # It gets a longer leash; the UI shows a busy state and the fallback still catches a miss.
@@ -490,7 +501,7 @@ def draft_clarification(db: Session, sub_id: int, direction: str, element_type: 
         else:
             prompt = (
                 "You are the DGHR reviewer. Draft a 2-4 sentence clarification question to the entity about "
-                f"the element below — specific, evidence-seeking, challenging respectfully. Ask for the source "
+                f"the element below, specific, evidence-seeking, challenging respectfully. Ask for the source "
                 f"behind the figures, not for justification of headcount. Use ONLY the figures given. "
                 f"ELEMENT: {element_label or element_type}. FIGURES: {json.dumps(ctx)}"
             )
@@ -599,7 +610,7 @@ def _pre_review_plan(db: Session, sub: m.DepartmentSubmission) -> dict:
 
         verdict = "query" if concerns else "approve"
         reason = (concerns[0][:1].upper() + concerns[0][1:] + (" (+ more)" if len(concerns) > 1 else "")
-                  if concerns else "Figures are internally consistent and evidenced — no open question.")
+                  if concerns else "Figures are internally consistent and evidenced, no open question.")
         draft = ""
         if verdict == "query":
             ctx = _clarification_context(db, sub, et, key)
@@ -620,7 +631,7 @@ def _pre_review_plan(db: Session, sub: m.DepartmentSubmission) -> dict:
                 fte = drivers_by_key.get(biggest["element_key"], {}).get("fte") or 0
                 biggest["verdict"] = "query"
                 biggest["reason"] = (f"Sizing variance exceeds 15% and this is the largest single driver "
-                                     f"({fte:g} FTE) — verify the volume and handling time before the gap stands.")
+                                     f"({fte:g} FTE): verify the volume and handling time before the gap stands.")
                 ctx = _clarification_context(db, sub, "driver", biggest["element_key"])
                 biggest["draft"] = fallbacks.draft_clarification("question", "driver", biggest["element_label"], ctx, "")
 
@@ -629,7 +640,7 @@ def _pre_review_plan(db: Session, sub: m.DepartmentSubmission) -> dict:
     if to_query:
         heads = ", ".join(x["element_label"] for x in to_query[:3])
         rationale = (f"{len(to_query)} of {len(els)} elements need a question before this can be "
-                     f"recommended — {heads}. The rest are clean.")
+                     f"recommended: {heads}. The rest are clean.")
     else:
         rationale = (f"All {len(els)} elements are evidenced and internally consistent; the sizing "
                      f"reconciles ({facts['required_fte']} required vs {facts['available_fte']} available). "
@@ -723,12 +734,12 @@ def clarification_triage(db: Session) -> dict:
         element = c.element_label or c.element_type
         draft = fallbacks.chase_message(
             action if action != "wait" else "remind",
-            department=dept.name if dept else "—", entity=ent.name if ent else "—",
+            department=dept.name if dept else "-", entity=ent.name if ent else "-",
             element=element, days_open=age["days_open"], sla_days=sla_days, escalate_after=escalate_after)
         items.append({
             "id": c.id, "submission_id": c.submission_id,
-            "entity_id": ent.id if ent else None, "entity": ent.name if ent else "—",
-            "department_id": dept.id if dept else None, "department": dept.name if dept else "—",
+            "entity_id": ent.id if ent else None, "entity": ent.name if ent else "-",
+            "department_id": dept.id if dept else None, "department": dept.name if dept else "-",
             "element_label": element, "message": c.message,
             "days_open": age["days_open"], "level": age["level"],
             "action": action, "draft": draft,
@@ -745,9 +756,9 @@ def clarification_triage(db: Session) -> dict:
             bits.append(f"send {n_rem} reminder{'s' if n_rem != 1 else ''}")
         summary = ("Recommend " + " and ".join(bits) +
                    f" across {len({i['entity'] for i in act_items})} entit"
-                   f"{'ies' if len({i['entity'] for i in act_items}) != 1 else 'y'} — worst-aged first.")
+                   f"{'ies' if len({i['entity'] for i in act_items}) != 1 else 'y'}, worst-aged first.")
     else:
-        summary = "Nothing needs chasing yet — no open clarification is past the reminder threshold."
+        summary = "Nothing needs chasing yet, no open clarification is past the reminder threshold."
 
     if _live_enabled() and act_items:
         compact = [{"id": i["id"], "department": i["department"], "entity": i["entity"],
@@ -794,16 +805,16 @@ def apply_chase(db: Session, clarification_id: int, action: str, message: str) -
     body = (message or "").strip() or f"Clarification on {element} is awaiting a response."
     if action == "remind":
         workflow.notify(db, audience="entity", kind="reminder", entity_id=entity_id,
-                        title=f"{dept.name if dept else 'Department'} — reminder: clarification awaiting your response",
+                        title=f"{dept.name if dept else 'Department'}, reminder: clarification awaiting your response",
                         body=body)
         workflow.add_audit(db, label=f"Reminder sent to {ent.name if ent else 'entity'} · {element}",
                            actor_name="DGHR Central Team", entity_id=entity_id,
                            submission_id=c.submission_id, verb="reminded")
     else:  # escalate
         workflow.notify(db, audience="dghr", kind="clarification", entity_id=entity_id,
-                        title=f"Escalated: {dept.name if dept else 'Department'} — clarification unanswered",
+                        title=f"Escalated: {dept.name if dept else 'Department'}, clarification unanswered",
                         body=body)
-        workflow.add_audit(db, label=f"Clarification escalated · {dept.name if dept else '—'} · {element}",
+        workflow.add_audit(db, label=f"Clarification escalated · {dept.name if dept else '-'} · {element}",
                            actor_name="DGHR Central Team", entity_id=entity_id,
                            submission_id=c.submission_id, verb="escalated")
     workflow.bump_last_updated(db)
@@ -888,7 +899,7 @@ def quality_sweep(db: Session) -> dict:
         prompt = (
             "You are DGHR's workforce-planning analyst writing cross-entity data-quality insights. Rewrite "
             "each insight's title (<=8 words) and detail (1-2 sentences, specific, quietly challenging, "
-            "work-first) using ONLY the entities and figures given — never invent one. Respond ONLY with "
+            "work-first) using ONLY the entities and figures given, never invent one. Respond ONLY with "
             'JSON: {"insights":[{"i":int,"title":str,"detail":str}]}. INSIGHTS: ' + json.dumps(compact)
         )
         raw = _call_anthropic(prompt, _ANALYST_SYSTEM, max_tokens=800, timeout=25.0)

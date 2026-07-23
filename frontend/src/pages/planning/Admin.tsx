@@ -114,7 +114,7 @@ export function PlanningAdmin() {
                     {[["Opens", sel.starts_on], ["Closes", sel.ends_on], ["Deadline", sel.deadline]].map(([l, v]) => (
                       <div key={l as string} className="rounded-lg bg-inset p-3.5">
                         <div className="text-[10px] font-medium uppercase tracking-wide text-text3">{l}</div>
-                        <div className="mt-1 text-base font-bold text-text1 nums">{(v as string) ?? "—"}</div>
+                        <div className="mt-1 text-base font-bold text-text1 nums">{(v as string) ?? "-"}</div>
                       </div>
                     ))}
                   </div>

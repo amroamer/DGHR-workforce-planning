@@ -23,7 +23,7 @@ export function TodoScreen({
             icon={<Hammer size={24} />}
             tone="#2563EB"
             toneBg="#DBEAFE"
-            title={`${title} — coming in ${phase}`}
+            title={`${title}, coming in ${phase}`}
             description="This mockup-backed screen is scheduled in the phase plan. The app shell, header, persona switch, and notifications are live now."
           />
         </div>

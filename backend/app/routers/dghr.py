@@ -408,7 +408,7 @@ def issue_send_back(issue_id: int, db: Session = Depends(get_db)) -> dict:
              "evidence_documents": "Evidence Data"}.get(issue.package_key, issue.package_key)
     c = cases_svc.open_clarification(
         db, entity_id=issue.entity_id, package_label=label,
-        issue_summary=f"Validation issue — {issue.issue_type}: please review and correct the flagged {label} records.",
+        issue_summary=f"Validation issue, {issue.issue_type}: please review and correct the flagged {label} records.",
         priority=issue.severity, category="Data Quality")
     issue2 = db.get(m.ValidationIssue, issue_id)
     issue2.status = "in_progress"

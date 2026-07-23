@@ -164,9 +164,9 @@ export function CommandCenter() {
                       <td className="py-3 pr-4 text-center">
                         {r.quality_score != null ? (
                           <span className="nums inline-block rounded-md bg-warning-bg px-2 py-0.5 text-xs font-semibold text-warning">{r.quality_score}</span>
-                        ) : <span className="text-text3">—</span>}
+                        ) : <span className="text-text3">-</span>}
                       </td>
-                      <td className={`py-3 pr-4 nums ${r.overdue ? "text-danger" : "text-text2"}`}>{r.due_date ?? "—"}</td>
+                      <td className={`py-3 pr-4 nums ${r.overdue ? "text-danger" : "text-text2"}`}>{r.due_date ?? "-"}</td>
                       <td className="py-3 pr-4"><button onClick={() => nextAction(r)} className="text-xs font-semibold text-primary hover:underline">{r.next_action}</button></td>
                       <td className="py-3 text-right"><button aria-label={`View ${r.name}`} onClick={() => setDrawerId(r.id)} className="text-text3 hover:text-text1"><MoreHorizontal size={16} /></button></td>
                     </tr>

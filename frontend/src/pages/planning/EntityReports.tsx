@@ -63,7 +63,7 @@ export function PlanningEntityReports() {
             </div>
 
             <NarrativeCard
-              hint="A written read of your report — coverage, the gap, where it concentrates, and what to do next."
+              hint="A written read of your report: coverage, the gap, where it concentrates, and what to do next."
               generate={() => api.aiReportNarrative("entity", entityId!)} />
 
             {/* Ask-the-data chat scoped to this entity — grounded in the same figures on this page. */}
@@ -81,7 +81,7 @@ export function PlanningEntityReports() {
             <Card className="mb-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold text-text1">Projected demand vs supply</div>
-                <span className="text-[11px] text-text3">{proj?.assumptions?.horizon_years ?? "—"} yrs</span>
+                <span className="text-[11px] text-text3">{proj?.assumptions?.horizon_years ?? "-"} yrs</span>
               </div>
               <div className="mb-3 text-xs text-text3">Where you're heading if nothing changes.</div>
               <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
@@ -148,12 +148,12 @@ export function PlanningEntityReports() {
                       return (
                         <tr key={d.department_id} className={`${TROW} cursor-pointer`}
                           onClick={() => navigate(`/entity/departments/${d.department_id}`)}>
-                          <td className="px-5 py-3.5 text-sm font-semibold text-text1">{d.name}<div className="text-[11px] font-normal text-text3">{d.typeset ?? "—"}</div></td>
+                          <td className="px-5 py-3.5 text-sm font-semibold text-text1">{d.name}<div className="text-[11px] font-normal text-text3">{d.typeset ?? "-"}</div></td>
                           <td className="px-3 py-3.5 text-right text-sm text-text2 nums">{fmtFte(d.current_fte)}</td>
-                          <td className={`${TD_NUM} font-semibold`}>{d.required_fte != null ? fmtFte(d.required_fte) : "—"}</td>
+                          <td className={`${TD_NUM} font-semibold`}>{d.required_fte != null ? fmtFte(d.required_fte) : "-"}</td>
                           <td className="px-3 py-3.5 text-right"><GapPill gap={d.gap} /></td>
-                          <td className="px-3 py-3.5 text-right text-sm text-text2 nums">{h?.headcount ?? "—"}</td>
-                          <td className="px-3 py-3.5 text-right text-sm text-text2 nums">{h ? `${h.emiratization_pct}%` : "—"}</td>
+                          <td className="px-3 py-3.5 text-right text-sm text-text2 nums">{h?.headcount ?? "-"}</td>
+                          <td className="px-3 py-3.5 text-right text-sm text-text2 nums">{h ? `${h.emiratization_pct}%` : "-"}</td>
                           <td className={TD}><StatusBadge value={Q_STATUS_VALUE[d.status]} label={Q_STATUS_LABEL[d.status]} />{d.status_date && <div className="mt-0.5 text-[10px] text-text3">{new Date(d.status_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</div>}</td>
                           <td className="px-5 py-3.5 text-sm"><SmartRemarkCell remark={d.remark} /></td>
                         </tr>

@@ -80,7 +80,7 @@ def why_frozen(db: Session, sub: m.DepartmentSubmission) -> str:
     if sub.status == "in_clarification":
         return "This version is the record of what was submitted. Revise it to answer the clarification in a new version."
     if sub.status == "approved":
-        return (f"v{sub.version} is approved and cannot be changed — it is the record DGHR signed off. "
+        return (f"v{sub.version} is approved and cannot be changed, it is the record DGHR signed off. "
                 f"Revise it to propose a new version.")
     if sub.status == "rejected":
         return "This version was rejected and is kept as the record. Revise it to create a new version."

@@ -267,7 +267,7 @@ class DriverCreate(BaseModel):
     category: str
     description: str
     impact: str = "Medium"
-    horizon: str = "1–3 years"
+    horizon: str = "1-3 years"
 
 
 @router.post("/{entity_id}/drivers")

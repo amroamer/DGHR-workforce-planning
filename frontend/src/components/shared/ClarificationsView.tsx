@@ -194,7 +194,7 @@ export function ClarificationsView({ side, entityId, title, subtitle }: { side: 
                 <div className="grid grid-cols-2 gap-4 border-b border-border px-5 py-4">
                   <div><div className="mb-1 text-sm font-semibold text-text1">Issue Summary</div><p className="text-sm text-text2">{d.issue_summary}</p></div>
                   <div><div className="mb-1 text-sm font-semibold text-text1">Requested Corrections</div>
-                    {d.corrections.length ? <ul className="list-disc space-y-1 pl-4 text-sm text-text2">{d.corrections.map((c, i) => <li key={i}>{c}</li>)}</ul> : <p className="text-sm text-text3">—</p>}
+                    {d.corrections.length ? <ul className="list-disc space-y-1 pl-4 text-sm text-text2">{d.corrections.map((c, i) => <li key={i}>{c}</li>)}</ul> : <p className="text-sm text-text3">-</p>}
                   </div>
                 </div>
                 {/* tabs (CLR-07) */}
@@ -281,8 +281,8 @@ export function ClarificationsView({ side, entityId, title, subtitle }: { side: 
                 <div className="space-y-2 text-sm">
                   <Row label="Priority"><StatusBadge value={d.priority.toLowerCase()} label={d.priority} /></Row>
                   <Row label="Category"><span className="text-text1">{d.category}</span></Row>
-                  <Row label="Assigned To"><span className="text-text1">{d.assigned_to ?? "—"}</span></Row>
-                  <Row label="SLA"><span className={(d.sla_days ?? 0) < 0 ? "text-danger" : "text-text1"}>{d.sla_days != null ? `Due in ${d.sla_days} days` : "—"}</span></Row>
+                  <Row label="Assigned To"><span className="text-text1">{d.assigned_to ?? "-"}</span></Row>
+                  <Row label="SLA"><span className={(d.sla_days ?? 0) < 0 ? "text-danger" : "text-text1"}>{d.sla_days != null ? `Due in ${d.sla_days} days` : "-"}</span></Row>
                 </div>
               </Card>
             )}

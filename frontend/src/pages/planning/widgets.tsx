@@ -64,7 +64,7 @@ export function MiniBar({ current, required, max }: { current: number; required:
 }
 
 export function GapPill({ gap }: { gap: number | null }) {
-  if (gap == null) return <span className="text-text3">—</span>;
+  if (gap == null) return <span className="text-text3">-</span>;
   const cls = gap < 0 ? "bg-danger/10 text-danger" : gap > 0 ? "bg-success/10 text-success" : "bg-page text-text3";
   return <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold tabular-nums ${cls}`}>{gap > 0 ? "+" : ""}{gap}</span>;
 }
@@ -164,7 +164,7 @@ export function AdjustmentList({ rows }: { rows: Adjustment[] }) {
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-text3">
               <span className="rounded bg-page px-1.5 py-0.5 font-semibold text-text2">{a.kind_label}</span>
               {a.headcount > 0 && <span>{a.headcount} {a.headcount === 1 ? "person" : "people"}</span>}
-              {(a.starts_on || a.ends_on) && <span>{a.starts_on ?? "—"} → {a.ends_on ?? "open-ended"}</span>}
+              {(a.starts_on || a.ends_on) && <span>{a.starts_on ?? "-"} → {a.ends_on ?? "open-ended"}</span>}
               {other && <span>{a.kind === "secondment_out" ? "to" : "from"} {other}</span>}
               {!a.counts_in_supply && <span className="font-semibold text-text2">excluded from supply</span>}
               {a.counts_in_supply && !a.active && <span className="font-semibold text-warning">outside its dates</span>}
@@ -283,7 +283,7 @@ export function ProjectedGapChart({ points, height = 240 }: { points: Projection
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: DEMAND }} />Demand (required)</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-full" style={{ background: SUPPLY }} />Supply (available)</span>
         <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: bandFill, opacity: 0.5 }} />{shortage ? "Shortage" : "Surplus"}</span>
-        <span className="text-text3">axis zoomed to {Math.round(yMin).toLocaleString()}–{Math.round(yMax).toLocaleString()}</span>
+        <span className="text-text3">axis zoomed to {Math.round(yMin).toLocaleString()}-{Math.round(yMax).toLocaleString()}</span>
       </div>
     </div>
   );
@@ -374,7 +374,7 @@ const REMARK_TONE: Record<SmartRemark["tone"], { bg: string; fg: string }> = {
 };
 
 export function SmartRemarkCell({ remark }: { remark?: SmartRemark | null }) {
-  if (!remark) return <span className="text-text3">—</span>;
+  if (!remark) return <span className="text-text3">-</span>;
   const t = REMARK_TONE[remark.tone] ?? REMARK_TONE.clean;
   return (
     <div className="flex flex-col gap-0.5">

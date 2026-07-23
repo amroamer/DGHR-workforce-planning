@@ -1,38 +1,53 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Download, Scale } from "lucide-react";
+import {
+  ArrowDown, ArrowUp, BadgeCheck, Building2, Download, Info, Scale, Users,
+  type LucideIcon,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { cn } from "@/lib/utils";
-import type { BasisKey, CmpEntity, CmpMetric } from "@/lib/planning";
+import type { BasisKey, CmpInsight, CmpMetric, EntityComparisonPayload } from "@/lib/planning";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PageBody } from "@/components/shared/AppShell";
-import { Panel, LevelMixBar, RankList, Select, DashSkeleton, catColor } from "@/components/shared/dashcharts";
-import { GroupedBarChart } from "@/components/shared/charts";
+import { Panel, LevelMixBar, Select, DashSkeleton, catColor } from "@/components/shared/dashcharts";
 import { Reveal } from "@/components/shared/motionkit";
 import { EntityLogo } from "@/components/shared/EntityLogo";
+import { useChartTheme, type ChartColors } from "@/lib/useChartTheme";
 
 const MAX = 5;
 
-/** The winning entity id for a metric, or null when the metric has no "better" direction. */
-function leaderId(metric: CmpMetric): string | null {
-  if (metric.higher_is_better == null) return null;
-  const entries = Object.entries(metric.values).filter(([, v]) => v.value != null);
-  if (!entries.length) return null;
-  entries.sort((a, b) => (b[1].value as number) - (a[1].value as number)); // highest value first
-  return (metric.higher_is_better ? entries[0] : entries[entries.length - 1])[0];
+function hexToRgba(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((ch) => ch + ch).join("") : h;
+  const n = parseInt(full, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
 }
+
+const INSIGHT_ICON: Record<string, LucideIcon> = {
+  management_pct: Users, support_to_core: Scale, establishment_fte: Building2, emiratization_pct: BadgeCheck,
+};
 
 export function EntityComparison() {
   const [selected, setSelected] = useState<number[]>([]);
   const [basis, setBasis] = useState<BasisKey>("received");
   const { data: entities } = useQuery({ queryKey: ["entities-list"], queryFn: () => api.entitiesList() });
+  const { data: gov } = useQuery({ queryKey: ["dghr-entities"], queryFn: () => api.planning.dghrEntities() });
 
-  // Preselect the first three entities once the list arrives, so the page opens on a real comparison.
+  const receivedById = useMemo(() => {
+    const m = new Map<number, number>();
+    gov?.entities.forEach((e) => m.set(e.entity_id, e.received));
+    return m;
+  }, [gov]);
+
+  // Smart default: preselect the entities that actually have submitted data (most-received first), so
+  // the page never opens on a wall of "-". Falls back to the first few if nothing has been received.
   useEffect(() => {
-    if (entities && entities.length && selected.length === 0) {
-      setSelected(entities.slice(0, Math.min(3, entities.length)).map((e) => e.id));
+    if (entities?.length && gov && selected.length === 0) {
+      const ranked = [...entities].sort((a, b) => (receivedById.get(b.id) ?? 0) - (receivedById.get(a.id) ?? 0));
+      const withData = ranked.filter((e) => (receivedById.get(e.id) ?? 0) > 0);
+      setSelected((withData.length >= 2 ? withData : ranked).slice(0, 3).map((e) => e.id));
     }
-  }, [entities, selected.length]);
+  }, [entities, gov, receivedById, selected.length]);
 
   const toggle = (id: number) =>
     setSelected((prev) =>
@@ -46,7 +61,6 @@ export function EntityComparison() {
     placeholderData: keepPreviousData,
   });
 
-  // Stable colour per compared entity, by its position in the payload (= selection order).
   const colorOf = useMemo(() => {
     const map = new Map<number, string>();
     data?.entities.forEach((e, i) => map.set(e.id, catColor(i)));
@@ -54,13 +68,14 @@ export function EntityComparison() {
   }, [data]);
 
   const csvUrl = api.planning.entityComparisonCsvUrl(selected, basis);
+  const emptySelected = data?.entities.filter((e) => !e.has_workforce_data) ?? [];
 
   return (
     <>
       <PageHeader title="Entity Comparison"
-        subtitle="Benchmark up to five entities side by side on workforce-structure ratios, computed live from establishment and submitted data." />
+        subtitle="Benchmark up to five entities side by side on workforce-structure ratios, each cell coloured against the peer average, computed live from establishment and submitted data." />
       <PageBody>
-        {/* Controls: entity multi-picker (max 5) + basis + CSV export */}
+        {/* Controls: entity multi-picker (max 5, data-aware) + basis + CSV export */}
         <div className="sticky top-0 z-20 -mx-4 mb-4 border-b border-border/70 bg-page/80 px-4 py-3 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-7 lg:px-7">
           <div className="mb-2.5 flex flex-wrap items-end justify-between gap-3">
             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-text3">
@@ -82,12 +97,15 @@ export function EntityComparison() {
             {(entities ?? []).map((e) => {
               const on = selected.includes(e.id);
               const disabled = !on && selected.length >= MAX;
+              const noData = (receivedById.get(e.id) ?? 0) === 0;
               return (
                 <button key={e.id} onClick={() => toggle(e.id)} disabled={disabled}
+                  title={noData ? "No submissions yet, structural ratios only" : undefined}
                   className={cn("inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition",
                     on ? "border-primary bg-primary/10 text-primary"
                       : disabled ? "cursor-not-allowed border-border/60 text-text3 opacity-50"
-                        : "border-border bg-card text-text2 hover:border-primary/50 hover:text-text1")}>
+                        : noData ? "border-dashed border-border text-text3 hover:text-text2"
+                          : "border-border bg-card text-text2 hover:border-primary/50 hover:text-text1")}>
                   <EntityLogo name={e.name} code={e.code} src={e.logo_url ?? undefined} size={16} rounded="full" />
                   {e.code}
                 </button>
@@ -104,64 +122,38 @@ export function EntityComparison() {
           <Panel><div className="py-10 text-center text-sm text-text3">No data for the selected entities.</div></Panel>
         ) : (
           <div className={cn("transition-opacity duration-300", isPlaceholderData && "opacity-60")}>
-            {/* 1 — the ratio matrix: every metric × entity, leader highlighted where a direction exists */}
-            <Reveal i={0}>
+            {/* Headline insights — the "so what" a bare grid can't surface */}
+            {data.insights.length > 0 && (
+              <Reveal i={0}>
+                <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {data.insights.map((ins, i) => <InsightCard key={i} ins={ins} />)}
+                </div>
+              </Reveal>
+            )}
+
+            {/* Empty-entity note */}
+            {emptySelected.length > 0 && (
+              <div className="mb-3 flex items-start gap-2 rounded-btn border border-warning/40 bg-warning-bg px-3 py-2 text-xs text-text2">
+                <Info size={14} className="mt-0.5 shrink-0 text-warning" />
+                <span>
+                  <b className="text-text1">{emptySelected.map((e) => e.code).join(", ")}</b>{" "}
+                  {emptySelected.length > 1 ? "have" : "has"} no submitted workforce data at this basis. Structural ratios still show, but workforce-mix and people rows read “-”. Switch basis or pick entities that have submitted.
+                </span>
+              </div>
+            )}
+
+            {/* The heatmap: every metric × entity, coloured vs the peer average */}
+            <Reveal i={1}>
               <Panel className="mb-4" title="Descriptive ratios" live
-                subtitle="Structural and workforce ratios across the selected entities. A leader is marked only where one direction is better.">
-                <ComparisonMatrix data={data} colorOf={colorOf} />
+                subtitle="Each cell is shaded against the all-entity average, green/red where a direction is better, blue by magnitude where it isn’t. Arrows mark above/below average.">
+                <Heatmap data={data} colorOf={colorOf} />
               </Panel>
             </Reveal>
 
-            {/* 2 — support vs core composition + support-to-core ranking */}
-            <div className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-              <Reveal i={1}>
-                <Panel className="h-full" title="Corporate-support vs core" live
-                  subtitle="Share of establishment FTE in corporate-support functions (corporate services + IT) vs core service delivery.">
-                  <div className="space-y-4">
-                    {data.entities.map((e) => (
-                      <div key={e.id}>
-                        <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold text-text1">
-                          <EntityLogo name={e.name} code={e.code} src={e.logo_url ?? undefined} size={18} rounded="md" />
-                          {e.name}
-                          <span className="ml-auto tabular-nums text-text3">{Math.round(e.structure.establishment_fte).toLocaleString()} FTE</span>
-                        </div>
-                        <LevelMixBar levels={e.structure.by_category.map((c) => ({ key: c.category, label: c.label, pct: c.pct }))} />
-                      </div>
-                    ))}
-                  </div>
-                </Panel>
-              </Reveal>
-              <Reveal i={2}>
-                <Panel className="h-full" title="Support-to-core ratio" live
-                  subtitle="Corporate-support FTE per unit of core FTE.">
-                  <RankList
-                    rows={data.entities.map((e) => {
-                      const v = data.metrics.find((m) => m.key === "support_to_core")?.values[String(e.id)];
-                      return { label: e.code, value: v?.value ?? 0, sub: v?.display };
-                    })}
-                    valueFmt={(v) => `${v.toFixed(2)}×`} />
-                </Panel>
-              </Reveal>
-            </div>
-
-            {/* 3 — corporate services vs IT split */}
-            <Reveal i={3}>
-              <Panel className="mb-4" title="Corporate-support composition (FTE)" live
-                subtitle="Establishment FTE in corporate services (HR / finance / procurement / facilities) vs IT.">
-                <GroupedBarChart
-                  data={data.entities.map((e) => ({ group: e.code, corporate: e.structure.corporate_fte, it: e.structure.it_fte }))}
-                  series={[
-                    { key: "corporate", name: "Corporate services", color: catColor(0) },
-                    { key: "it", name: "IT (digital)", color: catColor(1) },
-                  ]}
-                  height={260} />
-              </Panel>
-            </Reveal>
-
-            {/* 4 — workforce level mix per entity */}
-            <Reveal i={4}>
+            {/* Workforce level mix — the 4-part composition the ratios can't fully show */}
+            <Reveal i={2}>
               <Panel title="Workforce level mix" live
-                subtitle="Managers · professionals · associate professionals · clerical support, as a share of each entity's submitted workforce.">
+                subtitle="Managers · professionals · associate professionals · clerical support, as a share of each entity’s submitted workforce.">
                 <div className="grid gap-x-6 gap-y-5 md:grid-cols-2">
                   {data.entities.map((e) => (
                     <div key={e.id}>
@@ -188,23 +180,55 @@ export function EntityComparison() {
   );
 }
 
-// ─────────────── the ratio matrix (metrics × entities, grouped, leader-highlighted) ───────────────
-function ComparisonMatrix({ data, colorOf }: {
-  data: { entities: CmpEntity[]; metrics: CmpMetric[]; metric_groups: string[] };
-  colorOf: (id: number) => string;
-}) {
+// ─────────────── headline insight card ───────────────
+function InsightCard({ ins }: { ins: CmpInsight }) {
+  const Icon = INSIGHT_ICON[ins.metric_key] ?? Scale;
+  return (
+    <div className="rounded-card border border-border bg-card p-3.5 shadow-card transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-lg">
+      <div className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-text3">
+        <Icon size={13} className="text-primary" /> {ins.title}
+      </div>
+      <div className="flex items-center gap-2">
+        <EntityLogo name={ins.entity_name} code={ins.entity_code} src={ins.logo_url ?? undefined} size={24} rounded="md" />
+        <div className="truncate text-sm font-semibold text-text1">{ins.entity_code}</div>
+        <div className="nums ml-auto text-lg font-bold text-text1">{ins.display}</div>
+      </div>
+      <div className="mt-1 truncate text-[11px] text-text3">{ins.metric_label}</div>
+    </div>
+  );
+}
+
+// ─────────────── heatmap (metrics × entities, coloured vs peer average) ───────────────
+function heatBg(metric: CmpMetric, value: number | null, meta: { lo: number; hi: number; maxDev: number }, c: ChartColors): string | undefined {
+  if (value == null) return undefined;
+  const avg = metric.average.value;
+  if (metric.higher_is_better == null) {
+    // Neutral metric → sequential intensity by magnitude within the row (darkest = highest).
+    const t = meta.hi > meta.lo ? (value - meta.lo) / (meta.hi - meta.lo) : 0;
+    return hexToRgba(c.primary, 0.10 + 0.42 * t);
+  }
+  if (avg == null) return undefined;
+  const better = metric.higher_is_better ? value >= avg : value <= avg;
+  const t = Math.min(1, Math.abs(value - avg) / meta.maxDev);
+  return hexToRgba(better ? c.success : c.danger, 0.10 + 0.5 * t);
+}
+
+function Heatmap({ data, colorOf }: { data: EntityComparisonPayload; colorOf: (id: number) => string }) {
+  const c = useChartTheme();
   const { entities, metrics, metric_groups } = data;
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] border-collapse text-sm">
+      <table className="w-full min-w-[620px] border-collapse text-sm">
         <thead>
           <tr>
             <th className="sticky left-0 z-10 bg-card px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-text3">Metric</th>
+            <th className="border-b border-border px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-text3">Peer avg</th>
             {entities.map((e) => (
               <th key={e.id} className="border-t-2 px-2 py-2 text-center align-bottom" style={{ borderTopColor: colorOf(e.id) }}>
                 <div className="flex flex-col items-center gap-1">
                   <EntityLogo name={e.name} code={e.code} src={e.logo_url ?? undefined} size={22} rounded="md" />
                   <span className="text-xs font-semibold text-text1">{e.code}</span>
+                  {!e.has_workforce_data && <span className="rounded-full bg-page px-1.5 text-[9px] font-semibold text-text3">no data</span>}
                 </div>
               </th>
             ))}
@@ -212,53 +236,58 @@ function ComparisonMatrix({ data, colorOf }: {
         </thead>
         <tbody>
           {metric_groups.map((group) => {
-            const rows = metrics.filter((m) => m.group === group);
+            const rows = metrics.filter((met) => met.group === group);
             if (!rows.length) return null;
             return (
-              <GroupRows key={group} group={group} rows={rows} entities={entities} />
+              <Fragment key={group}>
+                <tr>
+                  <td colSpan={entities.length + 2}
+                    className="sticky left-0 bg-page px-2 pb-1.5 pt-4 text-[11px] font-bold uppercase tracking-wide text-text2">
+                    {group}
+                  </td>
+                </tr>
+                {rows.map((metric) => {
+                  const nums = entities
+                    .map((e) => metric.values[String(e.id)]?.value)
+                    .filter((v): v is number => v != null);
+                  const avg = metric.average.value;
+                  const meta = {
+                    lo: nums.length ? Math.min(...nums) : 0,
+                    hi: nums.length ? Math.max(...nums) : 0,
+                    maxDev: avg != null && nums.length ? Math.max(...nums.map((v) => Math.abs(v - avg)), 1e-9) : 1,
+                  };
+                  return (
+                    <tr key={metric.key} className="border-t border-border/60">
+                      <td className="sticky left-0 z-10 bg-card px-2 py-2.5 text-left">
+                        <div className="font-medium text-text1" title={metric.description}>{metric.label}</div>
+                        <div className="text-[11px] text-text3">{metric.unit}</div>
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <span className="nums rounded bg-page px-1.5 py-0.5 text-xs text-text3">{metric.average.display}</span>
+                      </td>
+                      {entities.map((e) => {
+                        const v = metric.values[String(e.id)];
+                        const val = v?.value ?? null;
+                        const bg = heatBg(metric, val, meta, c);
+                        const directional = metric.higher_is_better != null && val != null && avg != null;
+                        const up = directional && (val as number) >= avg!;
+                        return (
+                          <td key={e.id} className="px-2 py-2.5 text-center" style={{ background: bg }}>
+                            <span className="nums inline-flex items-center justify-center gap-0.5 font-semibold text-text1">
+                              {directional && (up ? <ArrowUp size={11} className="opacity-70" /> : <ArrowDown size={11} className="opacity-70" />)}
+                              {v?.display ?? "-"}
+                            </span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </Fragment>
             );
           })}
         </tbody>
       </table>
     </div>
-  );
-}
-
-function GroupRows({ group, rows, entities }: { group: string; rows: CmpMetric[]; entities: CmpEntity[] }) {
-  return (
-    <>
-      <tr>
-        <td colSpan={entities.length + 1}
-          className="sticky left-0 bg-page px-2 pb-1.5 pt-4 text-[11px] font-bold uppercase tracking-wide text-text2">
-          {group}
-        </td>
-      </tr>
-      {rows.map((metric) => {
-        const leader = leaderId(metric);
-        return (
-          <tr key={metric.key} className="border-t border-border/60">
-            <td className="sticky left-0 z-10 bg-card px-2 py-2.5 text-left">
-              <div className="font-medium text-text1" title={metric.description}>{metric.label}</div>
-              <div className="text-[11px] text-text3">
-                {metric.unit}
-                {metric.benchmark != null && <span className="ml-1.5">· target {metric.benchmark}</span>}
-              </div>
-            </td>
-            {entities.map((e) => {
-              const v = metric.values[String(e.id)];
-              const isLeader = leader != null && leader === String(e.id) && v?.value != null;
-              return (
-                <td key={e.id} className="px-2 py-2.5 text-center tabular-nums">
-                  <span className={cn("inline-block rounded px-1.5 py-0.5",
-                    isLeader ? "bg-success-bg font-bold text-success" : "text-text1")}>
-                    {v?.display ?? "—"}
-                  </span>
-                </td>
-              );
-            })}
-          </tr>
-        );
-      })}
-    </>
   );
 }

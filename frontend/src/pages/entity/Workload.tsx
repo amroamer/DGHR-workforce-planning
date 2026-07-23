@@ -126,7 +126,7 @@ export function Workload() {
                         <td className={TD}><div className="flex items-center gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface2 text-primary">{SECTION_ICON[r.name] ?? <BarChart3 size={16} />}</span><div><div className="font-semibold text-text1">{r.name}</div><div className="nums text-[11px] text-text3">{r.metrics_count} metrics</div></div></div></td>
                         <td className={cn(TD, "text-text2")}>{r.service_type}</td>
                         <td className={cn(TD, "text-text2")}>{r.key_metric}</td>
-                        <td className={TD}><div className="nums font-semibold text-text1">{r.current_volume != null ? fmt(r.current_volume) : "—"}</div><div className="text-[11px] text-text3">{r.unit}</div></td>
+                        <td className={TD}><div className="nums font-semibold text-text1">{r.current_volume != null ? fmt(r.current_volume) : "-"}</div><div className="text-[11px] text-text3">{r.unit}</div></td>
                         <td className={TD}><Trend pct={r.trend.pct} /></td>
                         <td className={TD}><Sparkline data={r.monthly_pattern} color={r.trend.pct < 0 ? "#E11D48" : "#2563EB"} /><div className="text-[10px] text-text3">{r.peak_label}</div></td>
                         <td className={TD}><StatusBadge value={r.complexity.toLowerCase()} label={r.complexity} /></td>
@@ -149,7 +149,7 @@ export function Workload() {
                   Guided Help <ChevronDown size={16} className={`text-text3 transition-transform ${helpOpen ? "" : "-rotate-90"}`} />
                 </button>
                 {helpOpen && (<>
-                  <p className="mb-2 mt-2 text-[11px] text-text3">Examples by Section Type — use these to understand key metrics.</p>
+                  <p className="mb-2 mt-2 text-[11px] text-text3">Examples by Section Type: use these to understand key metrics.</p>
                   <div className="space-y-1.5 text-xs">
                     {[["Customer Service", "Requests, response time, resolution rate"], ["Inspection & Compliance", "Inspections, violations, follow-ups"], ["Human Resources", "Hires, exits, training hours, promotions"], ["Finance", "Invoices, payments, reconciliations"], ["Information Technology", "Tickets, changes, incidents, uptime"], ["Strategy & Planning", "Projects, milestones, strategic initiatives"]].map(([t, d]) => (
                       <div key={t} className="flex items-start gap-1.5"><span className="mt-0.5 text-primary">{SECTION_ICON[t] ?? <BarChart3 size={14} />}</span><div><div className="font-semibold text-text1">{t}</div><div className="text-text3">{d}</div></div></div>

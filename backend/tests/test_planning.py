@@ -355,8 +355,10 @@ def test_entity_comparison_metrics_ranked_and_differentiated(client, db):
     assert {"support_to_core", "management_pct", "skilled_to_admin", "emiratization_pct"} <= keys
     for met in data["metrics"]:
         assert set(met["values"].keys()) == {str(rta), str(dha)}
+        assert "average" in met and "display" in met["average"]     # peer baseline the heatmap colours against
         for v in met["values"].values():
             assert "value" in v and "display" in v
+    assert isinstance(data.get("insights"), list) and data["insights"]  # auto-generated headline callouts
     mp = {row: v["value"] for met in data["metrics"] if met["key"] == "management_pct"
           for row, v in met["values"].items()}
     assert mp[str(rta)] is not None and mp[str(dha)] is not None

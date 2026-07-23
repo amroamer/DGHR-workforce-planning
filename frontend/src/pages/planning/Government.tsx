@@ -274,7 +274,7 @@ export function PlanningGovernment() {
               <Card>
                 <div className="flex items-center justify-between">
                   <div className="text-sm font-semibold text-text1">Projected demand vs supply</div>
-                  <span className="text-[11px] text-text3">{qProj.data?.assumptions?.horizon_years ?? "—"} yrs</span>
+                  <span className="text-[11px] text-text3">{qProj.data?.assumptions?.horizon_years ?? "-"} yrs</span>
                 </div>
                 <div className="mb-3 text-xs text-text3">
                   Government-wide trajectory if nothing changes, across {qProj.data?.departments_counted ?? 0} departments.
@@ -306,7 +306,7 @@ export function PlanningGovernment() {
                             className={`cursor-pointer border-b border-border last:border-0 ${active ? "bg-primary/5" : "hover:bg-page/60"}`}>
                             <td className={`px-5 py-2.5 ${active ? "font-bold text-primary" : "text-text1"}`}>{s.label}</td>
                             <td className="px-3 py-2.5 text-right font-semibold tabular-nums">{st.required_fte}</td>
-                            <td className="px-3 py-2.5 text-right tabular-nums text-text3">{delta === 0 ? "—" : `${delta > 0 ? "+" : ""}${delta}`}</td>
+                            <td className="px-3 py-2.5 text-right tabular-nums text-text3">{delta === 0 ? "-" : `${delta > 0 ? "+" : ""}${delta}`}</td>
                             <td className="px-5 py-2.5 text-right"><GapPill gap={st.gap} /></td>
                           </tr>
                         );
@@ -386,11 +386,11 @@ export function PlanningGovernment() {
                       <ReceivedChip received={e.received} total={e.dept_count} />
                       {e.counted !== e.received && <div className="mt-1 text-[10px] text-text3">{e.counted} counted{e.estimated ? " (incl. estimated)" : ""}</div>}
                     </td>
-                    <td className="px-3 py-3">{active ? <MiniBar current={e.current_fte} required={e.required_fte} max={maxEnt} /> : <span className="text-xs text-text3">—</span>}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-text2">{active ? e.current_fte : "—"}</td>
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums text-text1">{active ? e.required_fte : "—"}</td>
-                    <td className="px-3 py-3 text-right">{active ? <GapPill gap={e.gap} /> : <span className="text-text3">—</span>}</td>
-                    <td className="px-5 py-3">{active ? <SmartRemarkCell remark={e.remark} /> : <span className="text-text3">—</span>}</td>
+                    <td className="px-3 py-3">{active ? <MiniBar current={e.current_fte} required={e.required_fte} max={maxEnt} /> : <span className="text-xs text-text3">-</span>}</td>
+                    <td className="px-3 py-3 text-right tabular-nums text-text2">{active ? e.current_fte : "-"}</td>
+                    <td className="px-3 py-3 text-right font-semibold tabular-nums text-text1">{active ? e.required_fte : "-"}</td>
+                    <td className="px-3 py-3 text-right">{active ? <GapPill gap={e.gap} /> : <span className="text-text3">-</span>}</td>
+                    <td className="px-5 py-3">{active ? <SmartRemarkCell remark={e.remark} /> : <span className="text-text3">-</span>}</td>
                   </tr>
                 );
               })}

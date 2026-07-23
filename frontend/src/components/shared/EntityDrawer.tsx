@@ -68,11 +68,11 @@ export function EntityDrawer({
               </div>
               <div>
                 <div className="text-xs text-text3">Quality Score</div>
-                <div className="font-semibold text-text1">{data.quality_score ?? "—"}</div>
+                <div className="font-semibold text-text1">{data.quality_score ?? "-"}</div>
               </div>
               <div>
                 <div className="text-xs text-text3">Due date</div>
-                <div className="font-semibold text-text1">{data.due_date ?? "—"}</div>
+                <div className="font-semibold text-text1">{data.due_date ?? "-"}</div>
               </div>
               <div>
                 <div className="text-xs text-text3">Forecasting</div>

@@ -135,7 +135,7 @@ export function PlanningDepartments() {
           <Card>
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-text1">Workforce Outlook</div>
-              <span className="text-[11px] text-text3">Projected, {proj?.assumptions?.horizon_years ?? "—"} yrs</span>
+              <span className="text-[11px] text-text3">Projected, {proj?.assumptions?.horizon_years ?? "-"} yrs</span>
             </div>
             <div className="mb-3 text-xs text-text3">Where demand and supply are heading if nothing changes.</div>
             <ProjectedGapChart points={proj?.points ?? []} height={196} />
@@ -209,7 +209,7 @@ export function PlanningDepartments() {
                     <tr key={d.department_id} className="cursor-pointer border-b border-border last:border-0 hover:bg-page/60" onClick={() => navigate(`/entity/departments/${d.department_id}`)}>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2 font-semibold text-text1">{d.name} <ArrowUpRight size={13} className="text-text3" /></div>
-                        <div className="mt-0.5 text-[11px] text-text3">{d.typeset ?? "—"}</div>
+                        <div className="mt-0.5 text-[11px] text-text3">{d.typeset ?? "-"}</div>
                       </td>
                       <td className="px-3 py-4">{d.required_fte != null ? <MiniBar current={d.current_fte} required={d.required_fte} max={maxD} /> : <span className="text-xs text-text3">Not submitted</span>}</td>
                       <td className="px-3 py-4 text-right tabular-nums text-text2">{d.current_fte}</td>
@@ -218,7 +218,7 @@ export function PlanningDepartments() {
                           <TraceableValue kind="submission" refId={d.submission_id} label={`Required FTE for ${d.name}`}>
                             {d.required_fte}
                           </TraceableValue>
-                        ) : (d.required_fte ?? "—")}
+                        ) : (d.required_fte ?? "-")}
                       </td>
                       <td className="px-3 py-4 text-right"><GapPill gap={d.gap} /></td>
                       <td className="px-3 py-4"><StatusBadge value={Q_STATUS_VALUE[d.status]} label={Q_STATUS_LABEL[d.status]} />{d.status_date && <div className="mt-0.5 text-[10px] text-text3">{new Date(d.status_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</div>}</td>

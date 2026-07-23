@@ -51,7 +51,7 @@ export function Workforce() {
       setStage("Running validations…");
       await new Promise((r) => setTimeout(r, 600));
       qc.invalidateQueries();
-      toast.success(`Imported ${fmt(result.imported)} records — ${result.mapped.pct}% auto-mapped.`);
+      toast.success(`Imported ${fmt(result.imported)} records, ${result.mapped.pct}% auto-mapped.`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Import failed.");
     } finally {
@@ -221,19 +221,19 @@ export function Workforce() {
                     <td className={TD}>
                       <input key={`fam-${r.id}-${r.job_family ?? ""}`} defaultValue={r.job_family ?? ""} aria-label="Job family"
                         onBlur={(e) => { const v = e.target.value.trim(); if (v !== (r.job_family ?? "")) patchRec(r.id, { job_family: v, map_status: v ? "mapped" : r.map_status }); }}
-                        className={cn(editCell, "w-28 text-xs")} placeholder="—" />
+                        className={cn(editCell, "w-28 text-xs")} placeholder="-" />
                     </td>
                     <td className={TD}>
                       <input key={`grade-${r.id}-${r.grade ?? ""}`} type="number" defaultValue={r.grade ?? ""} aria-label="Grade"
                         onBlur={(e) => { const v = e.target.value; const n = v === "" ? undefined : Number(v); if (n != null && n !== r.grade) patchRec(r.id, { grade: n }); }}
-                        className={cn(editCell, "nums w-14 text-sm")} placeholder="—" />
+                        className={cn(editCell, "nums w-14 text-sm")} placeholder="-" />
                     </td>
                     <td className={TD_NUM}>{r.current_fte.toFixed(2)}</td>
                     <td className={TD_NUM}>{r.vacancies.toFixed(2)}</td>
                     <td className={TD}>
                       <select value={r.employment_type ?? ""} aria-label="Employment type" onChange={(e) => patchRec(r.id, { employment_type: e.target.value })}
                         className={cn(editCell, "h-8 cursor-pointer select-field text-sm")}>
-                        <option value="">—</option><option>Permanent</option><option>Contract</option><option>Part-time</option>
+                        <option value="">-</option><option>Permanent</option><option>Contract</option><option>Part-time</option>
                       </select>
                     </td>
                     <td className={cn(TD, "text-center")}><input type="checkbox" aria-label="Critical role" checked={r.critical_role} onChange={(e) => patchRec(r.id, { critical_role: e.target.checked })} className="accent-primary" /></td>

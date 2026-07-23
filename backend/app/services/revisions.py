@@ -39,7 +39,7 @@ def _num(v) -> object:
 
 def _fmt(v) -> str:
     if v is None or v == "":
-        return "—"
+        return "-"
     if isinstance(v, bool):
         return "yes" if v else "no"
     n = _num(v)
@@ -73,7 +73,7 @@ def diff(db: Session, a: m.DepartmentSubmission, b: m.DepartmentSubmission) -> d
 
     if (a.notes or "") != (b.notes or ""):
         rows.append({"kind": "notes", "element": "Notes", "field": "Note",
-                     "change": "changed", "before": a.notes or "—", "after": b.notes or "—"})
+                     "change": "changed", "before": a.notes or "-", "after": b.notes or "-"})
 
     def q(model, sub_id):
         return db.query(model).filter(model.submission_id == sub_id).all()
@@ -84,10 +84,10 @@ def diff(db: Session, a: m.DepartmentSubmission, b: m.DepartmentSubmission) -> d
     for k in sorted(set(da) | set(dbb)):
         if k not in dbb:
             rows.append({"kind": "driver", "element": da[k].name, "field": "Driver",
-                         "change": "removed", "before": _fmt(da[k].volume), "after": "—"})
+                         "change": "removed", "before": _fmt(da[k].volume), "after": "-"})
         elif k not in da:
             rows.append({"kind": "driver", "element": dbb[k].name, "field": "Driver",
-                         "change": "added", "before": "—", "after": _fmt(dbb[k].volume)})
+                         "change": "added", "before": "-", "after": _fmt(dbb[k].volume)})
         else:
             rows += _changes(dbb[k].name, "driver", da[k], dbb[k], _DRIVER_FIELDS)
             pa, pb = da[k].params or {}, dbb[k].params or {}
@@ -103,10 +103,10 @@ def diff(db: Session, a: m.DepartmentSubmission, b: m.DepartmentSubmission) -> d
     for k in sorted(set(fa) | set(fb)):
         if k not in fb:
             rows.append({"kind": "mandate", "element": fa[k].role, "field": "Statutory floor",
-                         "change": "removed", "before": _fmt(fa[k].positions), "after": "—"})
+                         "change": "removed", "before": _fmt(fa[k].positions), "after": "-"})
         elif k not in fa:
             rows.append({"kind": "mandate", "element": fb[k].role, "field": "Statutory floor",
-                         "change": "added", "before": "—", "after": _fmt(fb[k].positions)})
+                         "change": "added", "before": "-", "after": _fmt(fb[k].positions)})
         else:
             rows += _changes(fb[k].role, "mandate", fa[k], fb[k], _MANDATE_FIELDS)
 
@@ -122,10 +122,10 @@ def diff(db: Session, a: m.DepartmentSubmission, b: m.DepartmentSubmission) -> d
     for k in sorted(set(aa) | set(ab)):
         if k not in ab:
             rows.append({"kind": "supply", "element": aa[k].label or aa[k].kind, "field": "Adjustment",
-                         "change": "removed", "before": _fmt(aa[k].fte), "after": "—"})
+                         "change": "removed", "before": _fmt(aa[k].fte), "after": "-"})
         elif k not in aa:
             rows.append({"kind": "supply", "element": ab[k].label or ab[k].kind, "field": "Adjustment",
-                         "change": "added", "before": "—", "after": _fmt(ab[k].fte)})
+                         "change": "added", "before": "-", "after": _fmt(ab[k].fte)})
         else:
             rows += _changes(ab[k].label or ab[k].kind, "supply", aa[k], ab[k], _ADJUSTMENT_FIELDS)
 
@@ -167,7 +167,7 @@ def history(db: Session, department_id: int) -> dict:
         events.append({
             "at": _iso(s.created_at), "verb": "created", "version": s.version,
             "actor": _person(s.submitted_by_name),
-            "title": f"v{s.version} created" + (f" — revision of v{s.version - 1}" if s.supersedes_id else " — first draft"),
+            "title": f"v{s.version} created" + (f" (revision of v{s.version - 1})" if s.supersedes_id else " (first draft)"),
             "detail": "",
         })
         if s.submitted_at:
@@ -190,7 +190,7 @@ def history(db: Session, department_id: int) -> dict:
             events.append({
                 "at": _iso(c.created_at), "verb": "clarification", "version": s.version,
                 "actor": _person(c.author),
-                "title": f"{'Question raised' if c.side == 'dghr' else 'Entity replied'} — {c.element_label or c.element_type}",
+                "title": f"{'Question raised' if c.side == 'dghr' else 'Entity replied'}: {c.element_label or c.element_type}",
                 "detail": c.message or "",
             })
 

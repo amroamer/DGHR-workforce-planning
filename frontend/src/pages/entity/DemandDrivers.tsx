@@ -27,7 +27,7 @@ const CAT_ICON: Record<string, React.ReactNode> = {
   "Regulatory Changes": <Scale size={16} />, "Population / Demand Growth": <Users2 size={16} />,
   "Productivity Improvements": <TrendingUp size={16} />,
 };
-const HORIZONS = ["0–2 Years", "1–3 Years", "1–5 Years"];
+const HORIZONS = ["0-2 Years", "1-3 Years", "1-5 Years"];
 const IMPACTS = ["High", "Medium", "Low"];
 const FORECAST_SECTIONS = ["Workforce Baseline", "Organizational Structure", "Workload & Capacity", "Future Demand", "Budget & Cost"];
 type Driver = { id: number; category: string; description: string; impact: string; horizon: string; status: string; linked_sections: string[] };
@@ -41,9 +41,9 @@ export function DemandDrivers() {
   const [addOpen, setAddOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);   // DD-04: edit an existing driver
   const [guardOpen, setGuardOpen] = useState(false);
-  const [addForm, setAddForm] = useState({ category: "Strategic Initiatives", description: "", impact: "Medium", horizon: "1–3 Years" });
+  const [addForm, setAddForm] = useState({ category: "Strategic Initiatives", description: "", impact: "Medium", horizon: "1-3 Years" });
   const [addBusy, setAddBusy] = useState(false);
-  const closeAdd = () => { setAddOpen(false); setEditId(null); setAddForm({ category: "Strategic Initiatives", description: "", impact: "Medium", horizon: "1–3 Years" }); };
+  const closeAdd = () => { setAddOpen(false); setEditId(null); setAddForm({ category: "Strategic Initiatives", description: "", impact: "Medium", horizon: "1-3 Years" }); };
   const openEdit = (d: Driver) => { setEditId(d.id); setAddForm({ category: d.category, description: d.description, impact: d.impact, horizon: d.horizon }); setAddOpen(true); };
   // DD-07: link a driver to the forecast sections it affects (persisted on the driver)
   const [linkDriver, setLinkDriver] = useState<Driver | null>(null);
@@ -112,7 +112,7 @@ export function DemandDrivers() {
   const empty = (data?.drivers.length ?? 0) === 0;
 
   const mapCell = (impact: string, horizon: string) =>
-    (data?.drivers ?? []).filter((d) => d.impact === impact && HORIZONS.some((h) => d.horizon.includes(h.split("–")[0]) && h === horizon));
+    (data?.drivers ?? []).filter((d) => d.impact === impact && HORIZONS.some((h) => d.horizon.includes(h.split("-")[0]) && h === horizon));
 
   return (
     <>
@@ -184,7 +184,7 @@ export function DemandDrivers() {
               ) : (
                 <div className="p-5">
                   <div className="grid grid-cols-[70px_1fr_1fr_1fr] gap-2 text-xs">
-                    <div /><div className="text-center font-semibold text-text3">0–2 Years</div><div className="text-center font-semibold text-text3">1–3 Years</div><div className="text-center font-semibold text-text3">1–5 Years</div>
+                    <div /><div className="text-center font-semibold text-text3">0-2 Years</div><div className="text-center font-semibold text-text3">1-3 Years</div><div className="text-center font-semibold text-text3">1-5 Years</div>
                     {IMPACTS.map((imp) => (
                       <>
                         <div key={imp} className="flex items-center font-semibold text-text3">{imp}</div>

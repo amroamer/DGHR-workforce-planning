@@ -45,7 +45,7 @@ export function MySubmissions() {
                   <td className="px-5 py-3.5 text-sm font-semibold text-text1">{r.name}</td>
                   <td className={TD}><StatusBadge value={r.status} label={r.status_label} /></td>
                   <td className="w-48 px-3 py-3.5"><div className="nums mb-1.5 text-xs font-semibold text-text2">{r.progress}%</div><ProgressBar value={r.progress} /></td>
-                  <td className="px-3 py-3.5 text-sm text-text2">{r.updated_at ? relativeTime(r.updated_at) : "—"}</td>
+                  <td className="px-3 py-3.5 text-sm text-text2">{r.updated_at ? relativeTime(r.updated_at) : "-"}</td>
                   <td className="px-3 py-3.5 text-sm"><span className="inline-flex items-center gap-1.5 text-text2"><MessageSquare size={14} className="text-text3" /> {r.comments}</span></td>
                   <td className="px-5 py-3.5 text-right">
                     <Button size="sm" variant={r.action === "Continue" ? "primary" : "secondary"} onClick={() => navigate(`/entity/${r.route.replace("?tab=evidence", "")}`)}>{r.action}</Button>

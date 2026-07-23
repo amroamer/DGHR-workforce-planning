@@ -94,7 +94,7 @@ export function DataCollection() {
           </div>
           <button aria-label="Cycle calendar" className="flex h-9 w-9 items-center justify-center rounded-btn border border-border text-text2"><CalendarDays size={16} /></button>
           {c && <StatusBadge value="active" label="● Active" />}
-          {c && <span className="text-sm text-text3">{c.starts_on} – {c.ends_on}</span>}
+          {c && <span className="text-sm text-text3">{c.starts_on} - {c.ends_on}</span>}
         </div>
 
         {/* KPIs */}
@@ -217,7 +217,7 @@ export function DataCollection() {
       {c && <CycleDialog open={cycleOpen} cycle={c} onClose={() => setCycleOpen(false)} />}
 
       {/* CFG-07 section-type drawer: read-only list of packages that apply to this type */}
-      <Drawer open={sectionType != null} onClose={() => setSectionType(null)} title={`Section Type — ${sectionType ?? ""}`} width={420}>
+      <Drawer open={sectionType != null} onClose={() => setSectionType(null)} title={`Section Type: ${sectionType ?? ""}`} width={420}>
         {sectionType && (
           <div className="space-y-3">
             <p className="text-sm text-text2">Data packages that apply to <span className="font-semibold text-text1">{sectionType}</span> sections:</p>

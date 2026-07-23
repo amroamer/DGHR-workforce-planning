@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 // Semantic tokens theme automatically in dark mode.
 export function PctChip({ value, className }: { value: number | null; className?: string }) {
   if (value === null || value === undefined) {
-    return <span className={cn("text-text3", className)}>—</span>;
+    return <span className={cn("text-text3", className)}>-</span>;
   }
   const tone =
     value >= 80 ? "bg-success-bg text-success"

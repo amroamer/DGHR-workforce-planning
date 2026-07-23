@@ -67,7 +67,7 @@ function EntityDialog({
     <Modal
       open={open}
       onClose={onClose}
-      title={row ? `Edit Entity — ${row.name}` : "Onboard New Entity"}
+      title={row ? `Edit Entity: ${row.name}` : "Onboard New Entity"}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
@@ -170,8 +170,8 @@ export function Entities() {
                       <div className="mb-1 text-xs text-text2">{r.completeness}%</div>
                       <ProgressBar value={r.completeness} />
                     </td>
-                    <td className="px-3 py-2.5 text-text2">{r.reviewer ?? "—"}</td>
-                    <td className="px-3 py-2.5 text-text2">{r.due_date ?? "—"}</td>
+                    <td className="px-3 py-2.5 text-text2">{r.reviewer ?? "-"}</td>
+                    <td className="px-3 py-2.5 text-text2">{r.due_date ?? "-"}</td>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1.5">
                         <Button size="sm" variant="secondary" onClick={() => setDialog({ open: true, row: r })}>

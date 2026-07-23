@@ -79,7 +79,7 @@ export function PipelineByEntity({ entities, onOpen }: { entities: PipelineEntit
               </td>
               {stageKeys.map((k) => {
                 const c = countOf(e, k);
-                return <td key={k} className={`px-2 py-2.5 text-right tabular-nums ${c > 0 ? "text-text1" : "text-text3"}`}>{c || "—"}</td>;
+                return <td key={k} className={`px-2 py-2.5 text-right tabular-nums ${c > 0 ? "text-text1" : "text-text3"}`}>{c || "-"}</td>;
               })}
               <td className="px-3 py-2.5 text-right font-semibold tabular-nums text-text1">{e.received}/{e.total}</td>
             </tr>

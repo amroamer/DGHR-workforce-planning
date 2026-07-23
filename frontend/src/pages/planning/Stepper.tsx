@@ -306,7 +306,7 @@ export function PlanningStepper() {
           <div className="mb-4 flex flex-wrap items-center gap-3 rounded-card border border-l-4 border-border border-l-purple bg-purple-bg p-3.5 shadow-card">
             <Lock size={18} className="shrink-0 text-purple" />
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold text-purple">v{saved.version} — the record of what was submitted</div>
+              <div className="text-sm font-bold text-purple">v{saved.version}, the record of what was submitted</div>
               <div className="text-xs text-purple/80">Read-only. To change a figure, revise it into a new version.</div>
             </div>
             {saved.is_latest && (
@@ -570,7 +570,7 @@ export function PlanningStepper() {
                                   <Lbl>Effect on supply</Lbl>
                                   <div className="flex h-10 items-center text-lg font-bold tabular-nums"
                                     style={{ color: signed > 0 ? "rgb(var(--success))" : signed < 0 ? "rgb(var(--danger))" : "rgb(var(--text-3))" }}>
-                                    {signed === 0 ? "—" : `${signed > 0 ? "+" : "−"}${fmtFte(Math.abs(signed))} FTE`}
+                                    {signed === 0 ? "-" : `${signed > 0 ? "+" : "−"}${fmtFte(Math.abs(signed))} FTE`}
                                   </div>
                                 </div>
                               </div>
@@ -841,7 +841,7 @@ export function PlanningStepper() {
                     <SummaryCard title="Fixed requirements" hint="Statutory floors: legal minimums that can override the workload build-up.">
                       {mandates.map((mm, i) => (
                         <div key={i} className="flex items-center justify-between border-b border-border py-2 text-sm last:border-0">
-                          <span className="text-text1">{mm.positions} × {mm.role || "—"}{mm.legal_basis ? <span className="text-text3">, {mm.legal_basis}</span> : ""}</span>
+                          <span className="text-text1">{mm.positions} × {mm.role || "-"}{mm.legal_basis ? <span className="text-text3">, {mm.legal_basis}</span> : ""}</span>
                         </div>
                       ))}
                     </SummaryCard>
@@ -900,7 +900,7 @@ export function PlanningStepper() {
 
                   {/* ── projection ── */}
                   {saved.projection?.points?.length ? (
-                    <SummaryCard title="Projection" hint={`Demand vs supply over ${saved.projection.assumptions?.horizon_years ?? saved.projection.years ?? "—"} years if nothing changes.`}>
+                    <SummaryCard title="Projection" hint={`Demand vs supply over ${saved.projection.assumptions?.horizon_years ?? saved.projection.years ?? "-"} years if nothing changes.`}>
                       <ProjectedGapChart points={saved.projection.points} height={190} />
                     </SummaryCard>
                   ) : null}
@@ -915,7 +915,7 @@ export function PlanningStepper() {
                       <div className="text-sm text-text3">This submission was sent without a recorded champion verification.</div>
                     ) : (
                       <div className="flex flex-wrap items-center gap-3">
-                        <div className="text-sm text-text2">HR champion: <b className="text-text1">{saved.entity?.champion_name ?? "—"}</b></div>
+                        <div className="text-sm text-text2">HR champion: <b className="text-text1">{saved.entity?.champion_name ?? "-"}</b></div>
                         <Button size="sm" variant="secondary" disabled={busy} onClick={championVerify}><ShieldCheck size={15} /> Verify as HR champion</Button>
                         <span className="text-[11px] text-text3">Confirms the drivers, rationale and FTEs make sense before DGHR sees them.</span>
                       </div>
@@ -1017,7 +1017,7 @@ export function PlanningStepper() {
               <div className="rounded-card border border-border bg-card p-5 shadow-card">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="text-sm font-semibold text-text1">Projected gap</div>
-                  <span className="text-[11px] text-text3">{saved.projection.years ?? "—"} yrs</span>
+                  <span className="text-[11px] text-text3">{saved.projection.years ?? "-"} yrs</span>
                 </div>
                 <ProjectedGapChart points={saved.projection.points} height={150} />
                 <p className="mt-1 text-[11px] text-text3">Updates when you save. {saved.projection.assumptions?.note}</p>
@@ -1239,7 +1239,7 @@ function figureRows(saved: SubmissionPayload, q: Clarification): { label: string
         { label: "Driver", value: d.name },
         { label: "Reported volume", value: `${d.volume.toLocaleString()} ${d.unit}` },
         { label: "Forecast volume", value: d.forecast_stated === false ? "not stated (assumed flat)" : `${d.forecast.toLocaleString()} ${d.unit}` },
-        { label: "Source", value: d.source || "—" },
+        { label: "Source", value: d.source || "-" },
         { label: "Sizes to", value: `${fmtFte(d.fte)} FTE` },
       ];
     }
@@ -1248,7 +1248,7 @@ function figureRows(saved: SubmissionPayload, q: Clarification): { label: string
       if (!mnd) return [];
       return [
         { label: "Role", value: mnd.role },
-        { label: "Legal basis", value: mnd.legal_basis || "—" },
+        { label: "Legal basis", value: mnd.legal_basis || "-" },
         { label: "Statutory positions", value: String(mnd.positions) },
       ];
     }
@@ -1329,7 +1329,7 @@ function ClarificationReply({ c, subId, onReplied }: {
     <div className="rounded-lg border border-border bg-card p-3">
       <Lbl>Your reply to DGHR</Lbl>
       <Textarea rows={2} value={text} onChange={(e) => setText(e.target.value)}
-        placeholder="Answer the question — cite the source behind the figure…" className="min-h-[60px]" />
+        placeholder="Answer the question, cite the source behind the figure…" className="min-h-[60px]" />
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={draft} disabled={drafting}>
           <Sparkles size={14} /> {drafting ? "Drafting…" : "Draft with AI"}

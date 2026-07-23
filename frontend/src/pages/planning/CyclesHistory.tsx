@@ -17,7 +17,7 @@ const BADGE: Record<string, { value: string; label: string }> = {
   archived: { value: "not_started", label: "Archived" },
 };
 const short = (name: string) => name.replace(/\s*Planning Cycle$/i, "");
-const turn = (d: number) => (d > 0 ? `${d.toFixed(1)}d` : "—");
+const turn = (d: number) => (d > 0 ? `${d.toFixed(1)}d` : "-");
 
 export function PlanningCyclesHistory() {
   const { data } = useQuery({ queryKey: ["q-cycles-history"], queryFn: api.planning.cyclesHistory, refetchInterval: 4000 });
@@ -48,9 +48,9 @@ export function PlanningCyclesHistory() {
       <PageBody>
         <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard icon={<CalendarClock size={20} />} tone="#2563EB" value={data?.cycles_run ?? 0} label="Cycles run" sub="Opened at least once" />
-          <StatCard icon={<CheckCircle2 size={20} />} tone="#15803D" value={latest ? `${latest.received_pct}%` : "—"}
-            label="Latest received" sub={delta(dRecv, "pp") ?? (latest ? short(latest.name) : "—")} />
-          <StatCard icon={<Timer size={20} />} tone="#B45309" value={latest ? turn(latest.avg_turnaround_days) : "—"}
+          <StatCard icon={<CheckCircle2 size={20} />} tone="#15803D" value={latest ? `${latest.received_pct}%` : "-"}
+            label="Latest received" sub={delta(dRecv, "pp") ?? (latest ? short(latest.name) : "-")} />
+          <StatCard icon={<Timer size={20} />} tone="#B45309" value={latest ? turn(latest.avg_turnaround_days) : "-"}
             label="Sign-off turnaround" sub={delta(dTurn, "d", true) ?? "avg submit → decision"} />
           <StatCard icon={<UserX size={20} />} tone="#E11D48" value={chronic.length} label="Chronically late" sub="Behind in ≥2 cycles" />
         </div>
@@ -114,10 +114,10 @@ export function PlanningCyclesHistory() {
                     <td className={`${TD} pl-5 font-semibold`}>{c.name}</td>
                     <td className={`${TD} text-text2`}>{c.starts_on} → {c.ends_on}</td>
                     <td className={TD}><StatusBadge {...(BADGE[c.status] ?? { value: c.status, label: c.status })} /></td>
-                    <td className={TD_NUM}>{c.ran ? `${c.received_pct}%` : "—"}<span className="ml-1 text-[11px] font-normal text-text3">{c.ran ? `(${c.received}/${c.departments_total})` : ""}</span></td>
-                    <td className={TD_NUM}>{c.ran ? `${c.approved_pct}%` : "—"}</td>
+                    <td className={TD_NUM}>{c.ran ? `${c.received_pct}%` : "-"}<span className="ml-1 text-[11px] font-normal text-text3">{c.ran ? `(${c.received}/${c.departments_total})` : ""}</span></td>
+                    <td className={TD_NUM}>{c.ran ? `${c.approved_pct}%` : "-"}</td>
                     <td className={`${TD_NUM} text-text2`}>{turn(c.avg_turnaround_days)}</td>
-                    <td className={`${TD} pr-5 text-text3`}>{c.opened_by || "—"}{c.closed_by ? `, closed by ${c.closed_by}` : ""}</td>
+                    <td className={`${TD} pr-5 text-text3`}>{c.opened_by || "-"}{c.closed_by ? `, closed by ${c.closed_by}` : ""}</td>
                   </tr>
                 ))}
               </tbody>

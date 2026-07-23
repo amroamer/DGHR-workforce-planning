@@ -45,7 +45,7 @@ export function NarrativeCard({ title = "Executive summary", hint, generate }: {
       </div>
       {result
         ? <p className="mt-2 text-sm leading-relaxed text-text2">{result.narrative}</p>
-        : <p className="mt-1.5 text-xs text-text3">{hint ?? "A written read of the figures on this page — coverage, the gap, where it concentrates, and what to do next."}</p>}
+        : <p className="mt-1.5 text-xs text-text3">{hint ?? "A written read of the figures on this page: coverage, the gap, where it concentrates, and what to do next."}</p>}
     </Card>
   );
 }
